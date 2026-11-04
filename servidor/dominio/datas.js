@@ -8,7 +8,19 @@ export function hojeNoFuso(fuso, agora = new Date()) {
   }).format(agora);
 }
 
-/** 'AAAA-MM' -> { de: 'AAAA-MM-01', ate: 'AAAA-MM-último' }. */
+/** 'AAAA-MM-DD' + n dias -> 'AAAA-MM-DD' (n pode ser negativo). */
+export function somarDias(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Dias entre duas datas (ate − de). */
+export function diasEntre(de, ate) {
+  return Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000);
+}
+
+/** 'AAAA-MM' ->{ de: 'AAAA-MM-01', ate: 'AAAA-MM-último' }. */
 export function intervaloDoMes(mes) {
   const [ano, m] = mes.split('-').map(Number);
   const ultimo = new Date(Date.UTC(ano, m, 0)).getUTCDate();

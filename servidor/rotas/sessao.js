@@ -12,6 +12,7 @@ import {
   tokenCsrf,
 } from '../seguranca/sessao.js';
 import { limparTentativas, registrarErro, verificarBloqueio } from '../seguranca/tentativas.js';
+import { garantirOcorrencias } from './util.js';
 
 export async function rotasSessao(app) {
   const { db, cfg } = app;
@@ -26,6 +27,7 @@ export async function rotasSessao(app) {
   app.get('/api/sessao', { config: { publica: true } }, async (request) => {
     const token = request.cookies[COOKIE_SESSAO];
     const autenticado = sessaoValida(db, token);
+    if (autenticado) garantirOcorrencias(db); // abrir o app põe as recorrências em dia
     return {
       autenticado,
       senhaDefinida: senhaDefinida(db),

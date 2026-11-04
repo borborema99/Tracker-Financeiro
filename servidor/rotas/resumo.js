@@ -1,10 +1,12 @@
 import { esquemaMes } from '../../contratos/movimentacoes.js';
 import { movimentosDeCartaoDoPeriodo, resumoDosCartoes } from '../banco/repositorios/cartoes.js';
+import { compromissosPendentes } from '../banco/repositorios/compromissos.js';
 import { listarContas } from '../banco/repositorios/contas.js';
+import { totaisDeCompromissos } from '../dominio/compromisso.js';
 import { movimentacoesDoPeriodo } from '../banco/repositorios/movimentacoes.js';
-import { hojeNoFuso, intervaloDoMes } from '../dominio/datas.js';
+import { intervaloDoMes } from '../dominio/datas.js';
 import { resumoDoPeriodo } from '../dominio/resumo.js';
-import { fusoDe } from './util.js';
+import { garantirOcorrencias } from './util.js';
 
 export async function rotasResumo(app) {
   const { db } = app;
@@ -15,7 +17,7 @@ export async function rotasResumo(app) {
    */
   app.get('/api/resumo', async (request) => {
     const { mes } = esquemaMes.parse(request.query);
-    const hoje = hojeNoFuso(fusoDe(db));
+    const { hoje } = garantirOcorrencias(db);
     const mesAlvo = mes ?? hoje.slice(0, 7);
     const periodo = intervaloDoMes(mesAlvo);
     const contas = listarContas(db, { incluirArquivadas: false });
@@ -25,6 +27,8 @@ export async function rotasResumo(app) {
       ...movimentosDeCartaoDoPeriodo(db, periodo.de, periodo.ate),
     ];
     const cartoes = resumoDosCartoes(db, hoje);
+    const aPagar = compromissosPendentes(db, 'despesa');
+    const aReceber = compromissosPendentes(db, 'receita');
     return {
       mes: mesAlvo,
       periodo,
@@ -35,6 +39,15 @@ export async function rotasResumo(app) {
       ...resumoDoPeriodo(movimentos, periodo),
       // Só aparece quando existe cartão: nada de zero falso (RF-10).
       ...(cartoes ? { cartoes } : {}),
+      // Compromissos (RF-07): só aparece com algo pendente; "atrasado" é calculado contra hoje.
+      ...(aPagar.length + aReceber.length > 0
+        ? {
+            compromissos: {
+              a_pagar: totaisDeCompromissos(aPagar, hoje),
+              a_receber: totaisDeCompromissos(aReceber, hoje),
+            },
+          }
+        : {}),
     };
   });
 }

@@ -4,6 +4,7 @@ import { abrirBanco } from '../servidor/banco/conexao.js';
 import { migrar } from '../servidor/banco/migrar.js';
 import { FUSO_PADRAO } from '../contratos/config.js';
 import { faturasDoCartao, listarCartoes } from '../servidor/banco/repositorios/cartoes.js';
+import { listarCompromissos } from '../servidor/banco/repositorios/compromissos.js';
 import { listarContas } from '../servidor/banco/repositorios/contas.js';
 import { hojeNoFuso } from '../servidor/dominio/datas.js';
 import { listarMovimentacoes } from '../servidor/banco/repositorios/movimentacoes.js';
@@ -41,6 +42,25 @@ test('demo: o cartão fictício tem compras, uma fatura paga, estorno e limite c
   await semearDemo(db); // idempotente
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM compras_cartao').get().n, compras);
   assert.equal(listarCartoes(db, hoje).length, 1);
+  db.close();
+});
+
+test('demo: tem recorrências com ocorrências pendentes e uma conta atrasada, sem duplicar ao repetir', async () => {
+  const db = abrirBanco(':memory:');
+  migrar(db);
+  await semearDemo(db);
+  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
+  const contar = (sql) => db.prepare(sql).get().n;
+
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 3);
+  assert.ok(contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL') >= 9);
+  const atrasados = listarCompromissos(db, { tipo: 'despesa', pagina: 1, por_pagina: 50 }, hoje).totais.atrasado_centavos;
+  assert.equal(atrasados, 12900);
+
+  const ocorrencias = contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL');
+  await semearDemo(db);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 3);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL'), ocorrencias);
   db.close();
 });
 

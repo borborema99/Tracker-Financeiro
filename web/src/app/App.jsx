@@ -1,4 +1,6 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { Alertas } from '../alertas/Alertas.jsx';
 import { Login } from '../auth/Login.jsx';
 import { useSessao } from '../auth/useSessao.js';
 import { CartaoDetalhe } from '../cartoes/CartaoDetalhe.jsx';
@@ -6,6 +8,8 @@ import { Cartoes } from '../cartoes/Cartoes.jsx';
 import { Compra } from '../cartoes/Compra.jsx';
 import { Fatura } from '../cartoes/Fatura.jsx';
 import { Categorias } from '../categorias/Categorias.jsx';
+import { Compromissos } from '../compromissos/Compromissos.jsx';
+import { FormularioRecorrencia, Recorrencias } from '../compromissos/Recorrencias.jsx';
 import { Config } from '../config/Config.jsx';
 import { Contas } from '../contas/Contas.jsx';
 import { Dashboard } from '../dashboard/Dashboard.jsx';
@@ -13,6 +17,10 @@ import { FormularioMovimentacao } from '../movimentacoes/FormularioMovimentacao.
 import { Historico } from '../movimentacoes/Historico.jsx';
 import { Lancamentos } from '../movimentacoes/Lancamentos.jsx';
 import { Layout } from './Layout.jsx';
+import { Mais } from './Mais.jsx';
+
+// Recharts só é baixado quando se abre uma tela com gráfico.
+const Fluxo = lazy(() => import('../fluxo/Fluxo.jsx').then((m) => ({ default: m.Fluxo })));
 
 export function App() {
   const { data: sessao, isPending, error } = useSessao();
@@ -35,6 +43,20 @@ export function App() {
         <Route path="cartoes/compras/:id" element={<Compra fuso={sessao.fuso} />} />
         <Route path="cartoes/:id" element={<CartaoDetalhe />} />
         <Route path="faturas/:id" element={<Fatura fuso={sessao.fuso} />} />
+        <Route path="compromissos" element={<Compromissos fuso={sessao.fuso} />} />
+        <Route path="recorrencias" element={<Recorrencias />} />
+        <Route path="recorrencias/nova" element={<FormularioRecorrencia fuso={sessao.fuso} />} />
+        <Route path="recorrencias/:id" element={<FormularioRecorrencia fuso={sessao.fuso} />} />
+        <Route
+          path="fluxo"
+          element={
+            <Suspense fallback={<p className="carregando">Carregando…</p>}>
+              <Fluxo fuso={sessao.fuso} />
+            </Suspense>
+          }
+        />
+        <Route path="alertas" element={<Alertas />} />
+        <Route path="mais" element={<Mais />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="config" element={<Config fusoInicial={sessao.fuso} />} />
         <Route path="*" element={<Navigate to="/" replace />} />

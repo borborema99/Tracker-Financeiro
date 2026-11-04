@@ -86,7 +86,8 @@ function Linha({ m, contas, categorias }) {
       <td data-label="Categoria">{m.tipo === 'transferencia' ? 'Transferência' : categoria}</td>
       <td data-label="Conta">{destino ? `${conta} → ${destino}` : conta}</td>
       <td data-label="Situação">
-        <span className={`etiqueta ${m.status}`}>{ROTULOS_STATUS[m.status]}</span>
+        <span className={`etiqueta ${m.atrasada ? 'atrasada' : m.status}`}>{m.atrasada ? 'Atrasada' : ROTULOS_STATUS[m.status]}</span>
+        {m.recorrencia_id && <span className="etiqueta"> Recorrente</span>}
       </td>
       <td data-label="Valor" className="coluna-valor">
         <Valor centavos={m.valor_centavos} tipo={entrada ? 'entrada' : saida ? 'saida' : 'neutro'} />

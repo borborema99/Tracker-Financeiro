@@ -59,7 +59,10 @@ test('RF-02: GET /api/resumo devolve saldos, realizado e previsto em blocos sepa
   const res = await app.inject({ method: 'GET', url: '/api/resumo?mes=2026-06', headers: { host: HOST, cookie } });
   assert.equal(res.statusCode, 200);
   const corpo = res.json();
-  assert.deepEqual(Object.keys(corpo).sort(), ['mes', 'periodo', 'previsto', 'realizado', 'saldos']);
+  // `compromissos` aparece porque há uma despesa pendente (e só então); é um bloco à parte, nunca somado ao realizado.
+  assert.deepEqual(Object.keys(corpo).sort(), ['compromissos', 'mes', 'periodo', 'previsto', 'realizado', 'saldos']);
+  assert.equal(corpo.compromissos.a_pagar.total_centavos, 200);
+  assert.equal(corpo.compromissos.a_receber.total_centavos, 0);
   assert.equal(corpo.saldos.total_centavos, 1500);
   assert.equal(corpo.realizado.receitas, 500);
   assert.equal(corpo.previsto.despesas, 200);

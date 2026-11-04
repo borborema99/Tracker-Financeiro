@@ -14,6 +14,8 @@ import { rotasCategorias } from './rotas/categorias.js';
 import { rotasMovimentacoes } from './rotas/movimentacoes.js';
 import { rotasResumo } from './rotas/resumo.js';
 import { rotasCartoes } from './rotas/cartoes.js';
+import { rotasCompromissos } from './rotas/compromissos.js';
+import { rotasFluxo } from './rotas/fluxo.js';
 
 const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -85,6 +87,8 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasMovimentacoes);
   await app.register(rotasResumo);
   await app.register(rotasCartoes);
+  await app.register(rotasCompromissos);
+  await app.register(rotasFluxo);
 
   const temFront = existsSync(config.pastaWeb);
   if (temFront) {

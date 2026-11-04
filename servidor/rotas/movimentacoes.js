@@ -10,12 +10,15 @@ import {
   reabrirMovimentacao,
 } from '../banco/repositorios/movimentacoes.js';
 import { naoEncontrado } from '../erros.js';
-import { contextoDeEscrita, idDe } from './util.js';
+import { contextoDeEscrita, garantirOcorrencias, idDe } from './util.js';
 
 export async function rotasMovimentacoes(app) {
   const { db } = app;
 
-  app.get('/api/movimentacoes', async (request) => listarMovimentacoes(db, esquemaFiltros.parse(request.query)));
+  app.get('/api/movimentacoes', async (request) => {
+    const { hoje } = garantirOcorrencias(db);
+    return listarMovimentacoes(db, esquemaFiltros.parse(request.query), hoje);
+  });
 
   app.get('/api/movimentacoes/:id', async (request) => {
     const m = obterMovimentacao(db, idDe(request));

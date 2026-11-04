@@ -653,6 +653,16 @@ export function resumoDosCartoes(db, hoje) {
   };
 }
 
+/** Faturas com algo a pagar (de todos os cartões, inclusive arquivados), para alertas e projeção do fluxo. */
+export function faturasEmAberto(db, hoje) {
+  const cartoes = db.prepare('SELECT id, nome FROM cartoes WHERE excluido_em IS NULL').all();
+  return cartoes.flatMap((c) =>
+    comStatus(consolidadasDoCartao(db, c.id), hoje)
+      .filter((f) => f.saldo_centavos > 0)
+      .map((f) => ({ ...f, cartao_nome: c.nome })),
+  );
+}
+
 /** Pagamentos de fatura no formato que `saldo.js` entende: debitam a conta e nada mais. */
 export function pagamentosComoMovimentos(db) {
   return db

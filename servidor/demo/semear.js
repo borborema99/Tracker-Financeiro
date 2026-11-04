@@ -11,6 +11,7 @@ import {
 } from '../banco/repositorios/cartoes.js';
 import { criarConta, listarContas } from '../banco/repositorios/contas.js';
 import { criarMovimentacao } from '../banco/repositorios/movimentacoes.js';
+import { criarRecorrencia } from '../banco/repositorios/recorrencias.js';
 import { hojeNoFuso } from '../dominio/datas.js';
 import { definirSenha } from '../seguranca/senha.js';
 
@@ -100,9 +101,47 @@ function semearCartoes(db) {
   })();
 }
 
+/** Onda 3: recorrências (aluguel e salário, começando daqui a alguns dias) e uma conta já atrasada. */
+function semearCompromissos(db) {
+  if (lerConfig(db, 'demo_dados_v3') === '1') return;
+  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
+  const contexto = { hoje, agora: new Date() };
+  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
+  const conta = listarContas(db).find((c) => c.nome === 'Conta corrente');
+  if (!conta) return;
+
+  db.transaction(() => {
+    const recorrencia = (tipo, descricao, valor, categoria, inicioEmDias) =>
+      criarRecorrencia(
+        db,
+        {
+          tipo, descricao, valor_centavos: valor, conta_id: conta.id, categoria_id: categorias.get(categoria) ?? null,
+          frequencia: 'mensal', data_inicio: somarDias(hoje, inicioEmDias), data_fim: null, ativa: true, observacao: '',
+        },
+        contexto,
+      );
+    recorrencia('despesa', 'Aluguel', 180000, 'Aluguel ou financiamento', 9);
+    recorrencia('despesa', 'Internet', 9990, 'Internet', 3);
+    recorrencia('receita', 'Salário', 520000, 'Salário', 18);
+
+    // Uma conta que já passou do vencimento, para a demonstração mostrar o atraso calculado (RF-07).
+    const venceu = somarDias(hoje, -4);
+    criarMovimentacao(
+      db,
+      {
+        tipo: 'despesa', descricao: 'Mensalidade da academia', valor_centavos: 12900, conta_id: conta.id,
+        categoria_id: categorias.get('Saúde') ?? null, divisoes: [], observacao: '', tarifa_centavos: 0,
+        status: 'pendente', data_competencia: venceu, data_vencimento: venceu, data_liquidacao: null,
+      },
+      contexto,
+    );
+    gravarConfig(db, 'demo_dados_v3', '1');
+  })();
+}
+
 /**
  * Prepara o banco de demonstração: senha e dados fictícios (contas, lançamentos, uma transferência
- * com tarifa, compromissos pendentes e um cartão). Cada onda acrescenta os dados dos módulos que cria.
+ * com tarifa, compromissos pendentes, um cartão e recorrências). Cada onda acrescenta os dados dos módulos que cria.
  */
 export async function semearDemo(db) {
   if (lerConfig(db, 'demo_semeado') !== '1') {
@@ -111,6 +150,7 @@ export async function semearDemo(db) {
   }
   if (lerConfig(db, 'demo_dados_v1') === '1') {
     semearCartoes(db);
+    semearCompromissos(db);
     return;
   }
 
@@ -171,4 +211,5 @@ export async function semearDemo(db) {
     gravarConfig(db, 'demo_dados_v1', '1');
   })();
   semearCartoes(db);
+  semearCompromissos(db);
 }

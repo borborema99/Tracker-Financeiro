@@ -43,9 +43,13 @@ Cálculo financeiro só em `servidor/dominio/` (funções puras: `saldo`, `resum
 
 `dominio/cartao.js` (puro) calcula a fatura de cada compra, as parcelas, os totais e a situação das faturas, o limite e a projeção. `banco/repositorios/cartoes.js` grava (cartão, fatura, compra, parcela, estorno, pagamento), sempre com `audit_log` na mesma transação, e depois de cada mudança confere que nenhuma fatura ficou com pagamento maior que o total. Tabelas na migration `003_cartoes.sql`; o total da fatura e o limite não são colunas. O saldo das contas passa a descontar `pagamentos_fatura`; `/api/resumo` soma as compras no cartão ao realizado e só traz o bloco `cartoes` se existir cartão.
 
+## Compromissos e fluxo
+
+`dominio/compromisso.js` (atraso e totais), `recorrencia.js` (datas), `fluxo.js` (agrupamento, projeção, calendário) e `alertas.js` são puros. `banco/repositorios/recorrencias.js` gera as ocorrências (idempotente: confere o que já existe e o que foi pulado; o índice único da migration `004_compromissos.sql` é a garantia final); `compromissos.js` lista pendentes; `fluxo.js` monta fluxo, projeção, calendário e alertas; a baixa parcial e o reagendamento ficam em `movimentacoes.js`, que já cuida da auditoria dos lançamentos. `rotas/util.js#garantirOcorrencias` é chamado pelas rotas que dependem de compromissos e por `/api/sessao`: não há processo em segundo plano. Atrasada nunca é gravada.
+
 ## Front
 
-Funciona sem service worker. `app/pwa.js` só adiciona o manifest e registra o SW (em produção) quando `window.isSecureContext`. O SW faz cache do shell e dos assets e ignora `/api`. CSP sem `unsafe-inline`: estilos só em arquivos CSS e nenhum atributo `style`.
+Funciona sem service worker. `app/pwa.js` só adiciona o manifest e registra o SW (em produção) quando `window.isSecureContext`. O SW faz cache do shell e dos assets e ignora `/api`. CSP sem `unsafe-inline`: estilos só em arquivos CSS e nenhum atributo `style`. Celular: barra de baixo com Início, Lançamentos, Compromissos, Fluxo e Mais (a página `/mais` leva ao resto); desktop: menu lateral com tudo. Recharts só é baixado nas telas com gráfico (rota de fluxo lazy e gráficos lazy também no Início); cada gráfico tem tabela ou resumo equivalente e some com "Valores ocultos" quando o botão de ocultar está ligado.
 
 ## Testes
 

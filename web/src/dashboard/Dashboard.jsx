@@ -1,9 +1,56 @@
+import { Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../compartilhado/api.js';
-import { nomeDoMes } from '../compartilhado/datas.js';
-import { useContas } from '../compartilhado/dados.js';
+import { formatarData, nomeDoMes } from '../compartilhado/datas.js';
+import { useAlertas, useContas } from '../compartilhado/dados.js';
 import { Valor } from '../compartilhado/Valor.jsx';
+
+const GraficoProjecao = lazy(() => import('../fluxo/GraficoProjecao.jsx'));
+
+/** Os alertas mais importantes; a lista completa fica em /alertas. */
+function Alertas() {
+  const { data } = useAlertas();
+  if (!data || data.total === 0) return null;
+  const topo = data.alertas.slice(0, 3);
+  return (
+    <div className="cartao alerta alerta-alta" role="status">
+      <h2>Alertas</h2>
+      <ul className="lista-limpa">
+        {topo.map((a) => (
+          <li key={`${a.codigo}-${a.link}`}>
+            <Link to={a.link}><strong>{a.titulo}</strong></Link>
+            <p className="suave pequeno">{a.mensagem}</p>
+          </li>
+        ))}
+      </ul>
+      {data.total > topo.length && <Link className="botao" to="/alertas">Ver todos ({data.total})</Link>}
+    </div>
+  );
+}
+
+/** Projeção de 30 dias: só quando há o que projetar (compromissos ou cartões), para não desenhar uma reta vazia. */
+function Projecao() {
+  const projecao = useQuery({ queryKey: ['projecao-saldo', 30], queryFn: () => api('/fluxo/projecao?dias=30') });
+  if (!projecao.data) return null;
+  const p = projecao.data;
+  return (
+    <>
+      <h2>Próximos 30 dias</h2>
+      <div className="cartao">
+        <p className="suave pequeno">Saldo projetado: saldo de hoje + compromissos pendentes + faturas em aberto.</p>
+        <div className="resumo-fatura">
+          <p><span>Menor saldo (em {formatarData(p.saldo_minimo.data)})</span> <Valor centavos={p.saldo_minimo.centavos} /></p>
+          <p><span>Saldo em {formatarData(p.serie.at(-1).data)}</span> <Valor centavos={p.saldo_final_centavos} /></p>
+        </div>
+        <Suspense fallback={<p className="carregando">Carregando gráfico…</p>}>
+          <GraficoProjecao serie={p.serie} />
+        </Suspense>
+        <Link className="botao" to="/fluxo?aba=projecao">Ver fluxo de caixa</Link>
+      </div>
+    </>
+  );
+}
 
 export function Dashboard() {
   const contas = useContas();
@@ -26,10 +73,12 @@ export function Dashboard() {
     );
   }
 
-  const { saldos, realizado, previsto, mes, cartoes } = resumo.data;
+  const { saldos, realizado, previsto, mes, cartoes, compromissos } = resumo.data;
   return (
     <section>
       <h1>Início</h1>
+
+      <Alertas />
 
       <div className="cartao">
         <h2>Saldo total</h2>
@@ -60,6 +109,26 @@ export function Dashboard() {
           <p>A pagar <Valor centavos={previsto.despesas} tipo="saida" /></p>
         </div>
       </div>
+
+      {compromissos && (
+        <>
+          <h2>Compromissos</h2>
+          <div className="totais-lista">
+            {[['a_pagar', 'A pagar', 'saida', 'despesa'], ['a_receber', 'A receber', 'entrada', 'receita']].map(([chave, titulo, tipo, param]) => (
+              <div key={chave} className="cartao">
+                <h3>{titulo}</h3>
+                <p className="suave">Pendente, ainda não liquidado</p>
+                <p>Atrasado <Valor centavos={compromissos[chave].atrasado_centavos} tipo={tipo} /></p>
+                <p>Próximos 7 dias <Valor centavos={compromissos[chave].vence_em_breve_centavos} /></p>
+                <p>Depois <Valor centavos={compromissos[chave].depois_centavos} /></p>
+                <Link className="botao" to={`/compromissos${param === 'despesa' ? '' : `?tipo=${param}`}`}>Ver {titulo.toLowerCase()}</Link>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(compromissos || cartoes) && <Projecao />}
 
       {cartoes && (
         <>

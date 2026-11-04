@@ -105,6 +105,53 @@ a.botao, a.botao-primario {
 .linha-categoria { padding: 0.5rem 0; border-top: 1px solid var(--borda); }
 .filha { padding-left: 1.25rem; }
 
+/* Compromissos, alertas, fluxo e calendário */
+.topo { gap: 0.25rem; }
+.topo .titulo-marca { margin-right: auto; }
+.sino { position: relative; }
+.selo-alerta {
+  position: absolute; top: 4px; right: 2px; min-width: 1.15rem; height: 1.15rem; padding: 0 0.25rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--saida); color: var(--fundo); font-size: 0.7rem; font-weight: 700;
+}
+.etiqueta.vence_hoje { color: var(--aviso); border-color: var(--aviso); }
+.etiqueta.nivel-alta { color: var(--saida); border-color: var(--saida); }
+.etiqueta.nivel-media { color: var(--aviso); border-color: var(--aviso); }
+.alerta-alta { border-color: var(--saida); }
+.alerta-media { border-color: var(--aviso); }
+.alerta-info { border-color: var(--acento); }
+.alerta h2 { margin-top: 0; }
+.compromisso .item-topo p { margin: 0.15rem 0 0; }
+.compromisso .saldo { align-items: flex-end; gap: 0.25rem; }
+.inline-form { border-top: 1px solid var(--borda); margin-top: 0.75rem; padding-top: 0.75rem; }
+.linha-checkbox { display: flex; align-items: center; gap: 0.5rem; min-height: var(--toque); margin-bottom: 0.75rem; font-weight: 600; }
+.linha-checkbox input { width: 1.25rem; height: 1.25rem; margin: 0; }
+.lista-mais li { margin-bottom: 0.5rem; }
+.item-mais {
+  display: flex; align-items: center; gap: 0.75rem; min-height: var(--toque); padding: 0.5rem 1rem;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
+  color: var(--tinta); text-decoration: none; font-weight: 600;
+}
+.grafico { width: 100%; height: 260px; }
+.navegacao-mes { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; text-transform: capitalize; }
+.calendario { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; margin-bottom: 1rem; }
+.cab-dia { text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--tinta-suave); text-transform: uppercase; }
+.dia-cal {
+  min-height: var(--toque); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  font: inherit; color: var(--tinta); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); cursor: pointer;
+}
+.dia-cal.hoje { border-color: var(--acento); border-width: 2px; font-weight: 700; }
+.dia-cal.com-itens { background: var(--superficie-2); }
+.dia-cal.com-atraso { border-color: var(--saida); }
+.dia-cal.escolhido { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.marca-dia { font-size: 0.7rem; font-weight: 700; }
+.inicio-1 { grid-column-start: 2; }
+.inicio-2 { grid-column-start: 3; }
+.inicio-3 { grid-column-start: 4; }
+.inicio-4 { grid-column-start: 5; }
+.inicio-5 { grid-column-start: 6; }
+.inicio-6 { grid-column-start: 7; }
+
 @media (min-width: 900px) {
   .fab { bottom: 1.5rem; right: 1.5rem; }
   .tabela-mov thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }

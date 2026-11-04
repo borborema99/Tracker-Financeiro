@@ -1,5 +1,6 @@
 import { formatarDinheiro } from '../../../contratos/dinheiro.js';
 import { conflito, invalido, naoEncontrado } from '../../erros.js';
+import { estaAtrasada } from '../../dominio/compromisso.js';
 import { encontrarDuplicadas } from '../../dominio/duplicidade.js';
 import { normalizar, restanteReembolsavel, validarRegras } from '../../dominio/movimentacao.js';
 import { totaisDaListagem } from '../../dominio/resumo.js';
@@ -8,7 +9,8 @@ import { auditar } from '../auditoria.js';
 const COLUNAS = [
   'id', 'tipo', 'descricao', 'valor_centavos', 'conta_id', 'conta_destino_id', 'categoria_id',
   'data_competencia', 'data_vencimento', 'data_liquidacao', 'status', 'observacao',
-  'transferencia_id', 'reembolso_de_id', 'criada_em', 'atualizada_em',
+  'transferencia_id', 'reembolso_de_id', 'recorrencia_id', 'data_ocorrencia', 'baixa_de_id',
+  'criada_em', 'atualizada_em',
 ];
 const SQL_COLUNAS = COLUNAS.join(', ');
 const SQL_COLUNAS_M = COLUNAS.map((c) => `m.${c}`).join(', ');
@@ -150,10 +152,10 @@ function inserirLinha(db, d, iso, transferenciaId = null) {
     .prepare(
       `INSERT INTO movimentacoes (tipo, descricao, valor_centavos, conta_id, conta_destino_id, categoria_id,
          data_competencia, data_vencimento, data_liquidacao, status, observacao, transferencia_id,
-         reembolso_de_id, criada_em, atualizada_em)
+         reembolso_de_id, recorrencia_id, data_ocorrencia, baixa_de_id, criada_em, atualizada_em)
        VALUES (@tipo, @descricao, @valor_centavos, @conta_id, @conta_destino_id, @categoria_id,
          @data_competencia, @data_vencimento, @data_liquidacao, @status, @observacao, @transferencia_id,
-         @reembolso_de_id, @iso, @iso)`,
+         @reembolso_de_id, @recorrencia_id, @data_ocorrencia, @baixa_de_id, @iso, @iso)`,
     )
     .run({
       tipo: d.tipo,
@@ -169,9 +171,19 @@ function inserirLinha(db, d, iso, transferenciaId = null) {
       observacao: d.observacao ?? '',
       transferencia_id: transferenciaId,
       reembolso_de_id: d.reembolso_de_id ?? null,
+      recorrencia_id: d.recorrencia_id ?? null,
+      data_ocorrencia: d.data_ocorrencia ?? null,
+      baixa_de_id: d.baixa_de_id ?? null,
       iso,
     });
   return Number(lastInsertRowid);
+}
+
+/** Uso interno dos repositórios de compromissos: grava uma linha e a auditoria, dentro da transação do chamador. */
+export function inserirMovimentacaoAuditada(db, dados, iso) {
+  const id = inserirLinha(db, dados, iso);
+  auditar(db, { entidade: 'movimentacao', id, acao: 'criar', depois: obterMovimentacao(db, id) });
+  return id;
 }
 
 function gravarDivisoes(db, id, divisoes) {
@@ -350,8 +362,75 @@ export function excluirMovimentacao(db, id, { agora = new Date() } = {}) {
     for (const alvo of [id, ...idsFilhas(db, id)]) {
       const antes = obterMovimentacao(db, alvo);
       db.prepare('UPDATE movimentacoes SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(iso, iso, alvo);
+      // Ocorrência de recorrência apagada pelo dono não volta a ser gerada.
+      if (antes.recorrencia_id) {
+        db.prepare('INSERT OR IGNORE INTO recorrencias_puladas (recorrencia_id, data_ocorrencia) VALUES (?, ?)').run(
+          antes.recorrencia_id,
+          antes.data_ocorrencia,
+        );
+      }
       auditar(db, { entidade: 'movimentacao', id: alvo, acao: 'excluir', antes });
     }
+  })();
+}
+
+/** Compromisso = receita/despesa pendente, sem tarifa, divisão nem reembolso ligado (esses não se partem). */
+function exigirCompromissoPendente(db, id) {
+  const atual = obterMovimentacao(db, id);
+  if (!atual || atual.tipo === 'transferencia') throw naoEncontrado('Compromisso');
+  exigirIndependente(atual);
+  if (atual.status !== 'pendente') throw conflito('Este lançamento já foi liquidado.');
+  return atual;
+}
+
+/**
+ * Baixa parcial (pagamento ou recebimento de parte do valor). O lançamento original vira liquidado pelo valor
+ * baixado e o restante nasce como novo pendente, ligado ao original por `baixa_de_id` e com o mesmo vencimento.
+ * Baixa do valor inteiro é a liquidação comum.
+ */
+export function baixarParcial(db, id, { valor_centavos: valor, data_liquidacao: data }, { hoje, agora = new Date() }) {
+  const atual = exigirCompromissoPendente(db, id);
+  if (valor > atual.valor_centavos) {
+    throw invalido({ valor_centavos: `O valor passa do que falta (${formatarDinheiro(atual.valor_centavos)}).` });
+  }
+  if (valor === atual.valor_centavos) return { liquidada: liquidarMovimentacao(db, id, data ?? null, { hoje, agora }), restante: null };
+  if (atual.divisoes.length > 0) {
+    throw conflito('Lançamento dividido entre categorias não aceita baixa parcial. Baixe o valor inteiro.');
+  }
+  if (atual.tipo === 'despesa' && atual.reembolsado_centavos > 0) {
+    throw conflito('Esta despesa tem reembolso ligado e não aceita baixa parcial.');
+  }
+  const dia = data ?? hoje;
+  if (dia > hoje) throw invalido({ data_liquidacao: 'A baixa não pode ter data futura.' });
+  const iso = agora.toISOString();
+  return db.transaction(() => {
+    db.prepare(
+      `UPDATE movimentacoes SET valor_centavos = ?, status = 'liquidada', data_liquidacao = ?, atualizada_em = ?
+        WHERE id = ?`,
+    ).run(valor, dia, iso, id);
+    const restanteId = inserirLinha(
+      db,
+      { ...atual, valor_centavos: atual.valor_centavos - valor, baixa_de_id: id, recorrencia_id: null, data_ocorrencia: null },
+      iso,
+    );
+    const liquidada = obterMovimentacao(db, id);
+    const restante = obterMovimentacao(db, restanteId);
+    auditar(db, { entidade: 'movimentacao', id, acao: 'editar', antes: atual, depois: liquidada });
+    auditar(db, { entidade: 'movimentacao', id: restanteId, acao: 'criar', depois: restante });
+    return { liquidada, restante };
+  })();
+}
+
+/** Muda só o vencimento de um compromisso pendente (a competência e a ocorrência continuam como estavam). */
+export function reagendar(db, id, { data_vencimento: vencimento }, { agora = new Date() }) {
+  const antes = exigirCompromissoPendente(db, id);
+  if (antes.data_vencimento === vencimento) return antes;
+  const iso = agora.toISOString();
+  return db.transaction(() => {
+    db.prepare('UPDATE movimentacoes SET data_vencimento = ?, atualizada_em = ? WHERE id = ?').run(vencimento, iso, id);
+    const depois = obterMovimentacao(db, id);
+    auditar(db, { entidade: 'movimentacao', id, acao: 'editar', antes, depois });
+    return depois;
   })();
 }
 
@@ -383,7 +462,8 @@ export const liquidarMovimentacao = (db, id, dataLiquidacao, ctx) =>
 
 export const reabrirMovimentacao = (db, id, ctx) => mudarStatus(db, id, 'pendente', null, ctx);
 
-export function listarMovimentacoes(db, f) {
+/** `hoje` (opcional) marca os itens pendentes com vencimento passado como `atrasada` (RF-07: calculado, não gravado). */
+export function listarMovimentacoes(db, f, hoje = null) {
   const onde = ['m.excluida_em IS NULL'];
   const p = [];
 
@@ -455,7 +535,7 @@ export function listarMovimentacoes(db, f) {
   }
 
   return {
-    itens: montar(db, linhas),
+    itens: montar(db, linhas).map((m) => (hoje ? { ...m, atrasada: estaAtrasada(m, hoje) } : m)),
     total,
     pagina: f.pagina,
     por_pagina: f.por_pagina,
