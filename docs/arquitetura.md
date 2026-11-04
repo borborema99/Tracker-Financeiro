@@ -1,0 +1,52 @@
+# Arquitetura
+
+Um processo Node serve a API em `/api` e o build do front (`web/dist`). SQLite local em `data/`.
+
+```
+servidor/
+  index.js        sobe o servidor (lê .env, migra, escuta, imprime endereço e QR)
+  app.js          monta o Fastify: hooks de Host, Origin, sessão e CSRF; rotas; estáticos
+  config.js       variáveis de ambiente
+  rotas/          saude, sessao (login/logout), config
+  dominio/        cálculos financeiros, funções puras (vazio na Onda 0)
+  banco/          conexao, migrar (runner), auditoria, config-db, migrations/*.sql
+  seguranca/      senha (scrypt), sessao, tentativas, origem, cabecalhos
+  demo/           dados do modo demonstração
+web/src/          app React por feature: app, auth, config, dashboard, compartilhado
+contratos/        Zod e dinheiro, usados pelo front e pelo servidor
+scripts/          setup, dev, demo, backup, restaurar, redefinir-senha, iniciar-rede
+```
+
+## Requisição
+
+1. Hook `onRequest`: Host precisa ser localhost, IP literal ou estar em `ORIGENS_PERMITIDAS` (421 senão; evita DNS rebinding).
+2. Em `/api`, métodos de escrita exigem `Origin` igual ao Host e permitida (403 senão), inclusive o login.
+3. Rotas não marcadas `config: { publica: true }` exigem cookie de sessão (401).
+4. Escrita autenticada exige `X-CSRF-Token`, derivado por HMAC da sessão com `SEGREDO_SESSAO`.
+5. `onSend`: cabeçalhos de segurança; `/api` com `Cache-Control: no-store`.
+
+Sem sessão, rota inexistente também devolve 401 (não revela o que existe).
+
+## Sessão e senha
+
+Senha com scrypt (N=16384) na tabela `config`. Sessão: token aleatório no cookie, só o SHA-256 fica no banco, validade de 14 dias. Login limitado por IP: 5 erros bloqueiam por 15 min (`tentativas_login`). `trustProxy` só para 127.0.0.1/::1, para o `X-Forwarded-Proto` do `tailscale serve`.
+
+## Banco
+
+Migrations numeradas rodam em transação; `schema_migrations` guarda versão e checksum (migration alterada depois de aplicada é recusada). `audit_log` recebe antes/depois de toda escrita, na mesma transação (`banco/auditoria.js`).
+
+## Domínio e repositórios
+
+Cálculo financeiro só em `servidor/dominio/` (funções puras: `saldo`, `resumo`, `duplicidade`, `movimentacao`, `datas`). Acesso ao banco em `servidor/banco/repositorios/` (contas, categorias, movimentações): cada escrita e o registro em `audit_log` ficam na mesma transação. As rotas só validam com os contratos Zod e chamam os repositórios. Padrões de categorias em `servidor/banco/padroes.js` (rodam uma vez); dados de demonstração em `servidor/demo/semear.js`.
+
+## Cartões
+
+`dominio/cartao.js` (puro) calcula a fatura de cada compra, as parcelas, os totais e a situação das faturas, o limite e a projeção. `banco/repositorios/cartoes.js` grava (cartão, fatura, compra, parcela, estorno, pagamento), sempre com `audit_log` na mesma transação, e depois de cada mudança confere que nenhuma fatura ficou com pagamento maior que o total. Tabelas na migration `003_cartoes.sql`; o total da fatura e o limite não são colunas. O saldo das contas passa a descontar `pagamentos_fatura`; `/api/resumo` soma as compras no cartão ao realizado e só traz o bloco `cartoes` se existir cartão.
+
+## Front
+
+Funciona sem service worker. `app/pwa.js` só adiciona o manifest e registra o SW (em produção) quando `window.isSecureContext`. O SW faz cache do shell e dos assets e ignora `/api`. CSP sem `unsafe-inline`: estilos só em arquivos CSS e nenhum atributo `style`.
+
+## Testes
+
+`node:test` em `tests/`. Reporter `tests/reporter-falhas.js` imprime só falhas. Dado de teste é sempre fictício; o banco é `:memory:` ou pasta temporária.

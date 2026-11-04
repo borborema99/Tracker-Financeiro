@@ -1,0 +1,40 @@
+import { esquemaMes } from '../../contratos/movimentacoes.js';
+import { movimentosDeCartaoDoPeriodo, resumoDosCartoes } from '../banco/repositorios/cartoes.js';
+import { listarContas } from '../banco/repositorios/contas.js';
+import { movimentacoesDoPeriodo } from '../banco/repositorios/movimentacoes.js';
+import { hojeNoFuso, intervaloDoMes } from '../dominio/datas.js';
+import { resumoDoPeriodo } from '../dominio/resumo.js';
+import { fusoDe } from './util.js';
+
+export async function rotasResumo(app) {
+  const { db } = app;
+
+  /**
+   * Indicadores do mês (padrão: mês atual no fuso configurado). Saldos, realizado e previsto vêm
+   * em blocos separados; não existe número que misture realizado com previsto.
+   */
+  app.get('/api/resumo', async (request) => {
+    const { mes } = esquemaMes.parse(request.query);
+    const hoje = hojeNoFuso(fusoDe(db));
+    const mesAlvo = mes ?? hoje.slice(0, 7);
+    const periodo = intervaloDoMes(mesAlvo);
+    const contas = listarContas(db, { incluirArquivadas: false });
+    // RF-04: a compra no cartão é despesa realizada na data da compra; pagar fatura não entra aqui.
+    const movimentos = [
+      ...movimentacoesDoPeriodo(db, periodo.de, periodo.ate),
+      ...movimentosDeCartaoDoPeriodo(db, periodo.de, periodo.ate),
+    ];
+    const cartoes = resumoDosCartoes(db, hoje);
+    return {
+      mes: mesAlvo,
+      periodo,
+      saldos: {
+        por_conta: contas.map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo, saldo_centavos: c.saldo_centavos })),
+        total_centavos: contas.reduce((soma, c) => soma + c.saldo_centavos, 0),
+      },
+      ...resumoDoPeriodo(movimentos, periodo),
+      // Só aparece quando existe cartão: nada de zero falso (RF-10).
+      ...(cartoes ? { cartoes } : {}),
+    };
+  });
+}
