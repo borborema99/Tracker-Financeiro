@@ -46,6 +46,21 @@ export function Config({ fusoInicial }) {
       </form>
 
       <div className="cartao">
+        <h2>Exportar seus dados</h2>
+        <p className="suave pequeno">
+          Os arquivos são gerados na hora e baixados para este aparelho. Nada é enviado para fora.
+        </p>
+        <ul className="lista-limpa">
+          <li><a href="/api/exportar/lancamentos.csv" download>Lançamentos (CSV, para planilha)</a></li>
+          <li><a href="/api/exportar/compras-cartao.csv" download>Compras no cartão (CSV)</a></li>
+          <li><a href="/api/exportar/tudo.json" download>Cópia completa (JSON)</a></li>
+        </ul>
+        <p className="suave pequeno">
+          O JSON não inclui a senha. Para backup que se restaura, use <code>npm run backup</code> no terminal.
+        </p>
+      </div>
+
+      <div className="cartao">
         <h2>Sessão</h2>
         <button type="button" className="botao" onClick={() => logout.mutate()} disabled={logout.isPending}>
           Sair

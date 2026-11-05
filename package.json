@@ -19,7 +19,8 @@
     "redefinir-senha": "node scripts/redefinir-senha.js",
     "lint": "eslint .",
     "test": "node --test --test-reporter=./tests/reporter-falhas.js \"tests/**/*.test.js\"",
-    "verify": "npm run lint && npm test && npm run build"
+    "orcamento": "node scripts/orcamento-js.js",
+    "verify": "npm run lint && npm test && npm run build && npm run orcamento"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",

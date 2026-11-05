@@ -12,7 +12,9 @@ Esta versão cobre a Fase 1 do escopo (`docs/escopo-completo.md`):
 - Contas a pagar e a receber, com baixa parcial, reagendamento e aviso de atraso.
 - Lançamentos recorrentes.
 - Fluxo de caixa, com projeção de 7 a 90 dias, e dashboard com os indicadores dos módulos que existem.
-- Alertas dentro do app, exportação em CSV e JSON, backup e restauração.
+- Alertas dentro do app (atraso, vencimento próximo, fatura fechando e saldo projetado negativo).
+- Exportação em CSV (lançamentos e compras no cartão, prontos para planilha) e cópia completa em JSON.
+- Backup e restauração pelo terminal.
 
 ## Como rodar
 
@@ -66,11 +68,12 @@ Variáveis do `.env` que mudam o acesso:
 | `npm run redefinir-senha` | Define uma nova senha pelo terminal. |
 | `npm run lint` | Verifica o estilo do código. |
 | `npm test` | Roda os testes. |
-| `npm run verify` | Lint, testes e build em sequência. |
+| `npm run orcamento` | Confere o tamanho do JavaScript do front (exige `npm run build` antes). |
+| `npm run verify` | Lint, testes, build e orçamento de JavaScript em sequência. |
 
 ## Backup
 
-O banco fica em `data/`. Rode `npm run backup` de vez em quando e guarde uma cópia da pasta `backups/` fora do computador, porque se o disco falhar e só existir esse arquivo, os dados se perdem.
+O banco fica em `data/`. Rode `npm run backup` de vez em quando e guarde uma cópia da pasta `backups/` fora do computador, porque se o disco falhar e só existir esse arquivo, os dados se perdem. O arquivo de backup é uma cópia inteira do banco, inclusive o hash da senha e as sessões: guarde-o como guarda os dados. Para restaurar, pare o servidor e rode `npm run restaurar`; ele guarda o banco atual como `antes-de-restaurar-...` e o sistema aplica as migrations que faltarem ao subir.
 
 ## Segurança e privacidade
 
@@ -94,7 +97,7 @@ Valores ficam em centavos inteiros, nunca em número decimal, para não acumular
 servidor/    API (rotas, regras de cálculo, banco com migrations, segurança)
 web/         app React, organizado por funcionalidade
 contratos/   esquemas Zod usados pelo front e pelo servidor
-scripts/     setup, backup, restauração, redefinição de senha, modo demo
+scripts/     setup, backup, restauração, redefinição de senha, modo demo, orçamento de JS
 tests/       testes
 docs/        documentação e decisões (adr/)
 data/        banco SQLite (fora do git)
@@ -103,7 +106,7 @@ backups/     cópias do banco (fora do git)
 
 ## Documentação
 
-- `docs/escopo-completo.md`: lista completa de funcionalidades e fases.
+- `docs/escopo-completo.md`: funcionalidades e fases (provisório, ver `docs/adr/002-escopo-provisorio.md`).
 - `docs/arquitetura.md`: como o sistema é organizado.
 - `docs/regras-financeiras.md`: regras de cálculo e os testes que as cobrem.
 - `docs/acesso-celular.md`: Tailscale, mkcert e HTTPS.
@@ -113,3 +116,5 @@ backups/     cópias do banco (fora do git)
 ## O que ainda não tem
 
 Orçamentos, metas, dívidas, assinaturas, relatórios, patrimônio líquido, investimentos, múltiplas moedas, importação de extratos e assistente com IA estão nas Fases 2 a 4 do escopo e não existem nesta versão. O menu só mostra o que funciona de verdade.
+
+Também faltam, dentro da Fase 1: restaurar backup pela interface (hoje só pelo terminal), importar dados (o JSON exportado serve para guardar, não para reimportar), lembretes fora do app (e-mail ou push), parcelamento de conta a pagar e juros ou multa de atraso. Os gráficos do Fluxo de caixa ainda não foram conferidos num navegador sob a política de segurança; o roteiro está em `docs/teste-no-celular.md`.

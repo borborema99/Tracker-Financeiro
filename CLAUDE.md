@@ -4,7 +4,7 @@ Tracker Financeiro: controle financeiro pessoal local, uma instância = uma pess
 
 ## Comandos
 
-`npm run setup` · `dev` · `build` · `start` · `iniciar:rede` · `demo` · `backup` · `restaurar` · `redefinir-senha` · `lint` · `test` · `verify` (lint + test + build). Detalhes no README.md.
+`npm run setup` · `dev` · `build` · `start` · `iniciar:rede` · `demo` · `backup` · `restaurar` · `redefinir-senha` · `lint` · `test` · `orcamento` · `verify` (lint + test + build + orcamento). Detalhes no README.md.
 
 ## Onde ficam as coisas
 

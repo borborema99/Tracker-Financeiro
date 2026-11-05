@@ -16,6 +16,7 @@ import { rotasResumo } from './rotas/resumo.js';
 import { rotasCartoes } from './rotas/cartoes.js';
 import { rotasCompromissos } from './rotas/compromissos.js';
 import { rotasFluxo } from './rotas/fluxo.js';
+import { rotasExportar } from './rotas/exportar.js';
 
 const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -37,6 +38,16 @@ export async function criarApp({ config, db, logger = false }) {
 
   app.decorate('db', db);
   app.decorate('cfg', config);
+
+  // Registro das rotas de /api: o teste de segurança confere que cada uma exige sessão (ou declara ser pública).
+  const rotas = [];
+  app.addHook('onRoute', (rota) => {
+    if (!rota.url.startsWith('/api/')) return;
+    for (const metodo of [rota.method].flat().filter((m) => m !== 'HEAD')) {
+      rotas.push({ metodo, url: rota.url, publica: Boolean(rota.config?.publica) });
+    }
+  });
+  app.decorate('rotas', rotas);
   await app.register(cookie);
 
   app.addHook('onRequest', async (request, reply) => {
@@ -89,6 +100,7 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasCartoes);
   await app.register(rotasCompromissos);
   await app.register(rotasFluxo);
+  await app.register(rotasExportar);
 
   const temFront = existsSync(config.pastaWeb);
   if (temFront) {

@@ -4,8 +4,7 @@ import { abrirBanco } from '../servidor/banco/conexao.js';
 import { RAIZ, carregarEnv, lerAmbiente } from '../servidor/config.js';
 
 /** Copia o banco com a API de backup do SQLite (segura com o servidor ligado). */
-export async function fazerBackup(db, prefixo = 'tracker') {
-  const pasta = join(RAIZ, 'backups');
+export async function fazerBackup(db, prefixo = 'tracker', pasta = join(RAIZ, 'backups')) {
   mkdirSync(pasta, { recursive: true });
   const agora = new Date();
   const p = (n) => String(n).padStart(2, '0');

@@ -1,8 +1,7 @@
-import { copyFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { abrirBanco } from '../servidor/banco/conexao.js';
 import { RAIZ, carregarEnv, lerAmbiente } from '../servidor/config.js';
-import { fazerBackup } from './backup.js';
+import { conferirBackup, restaurarBanco } from './lib/restauracao.js';
 import { perguntar } from './lib/terminal.js';
 
 carregarEnv();
@@ -37,16 +36,11 @@ if (!existsSync(origem)) {
 }
 
 // Confere se é mesmo um banco do sistema antes de tocar no atual.
-const teste = abrirBanco(origem);
 try {
-  const ok = teste.prepare("SELECT 1 FROM sqlite_master WHERE name = 'schema_migrations'").get();
-  if (!ok) throw new Error('não é um backup deste sistema');
-  if (teste.pragma('integrity_check', { simple: true }) !== 'ok') throw new Error('arquivo corrompido');
+  conferirBackup(origem);
 } catch (e) {
   console.error(`Backup inválido: ${e.message}.`);
   process.exit(1);
-} finally {
-  teste.close();
 }
 
 if (!confirmado) {
@@ -57,12 +51,6 @@ if (!confirmado) {
   }
 }
 
-if (existsSync(caminhoBanco)) {
-  const atual = abrirBanco(caminhoBanco);
-  const guardada = await fazerBackup(atual, 'antes-de-restaurar');
-  atual.close();
-  console.log(`Banco atual guardado em ${guardada}`);
-}
-for (const sufixo of ['-wal', '-shm']) rmSync(caminhoBanco + sufixo, { force: true });
-copyFileSync(origem, caminhoBanco);
-console.log('Banco restaurado. Suba o sistema com: npm start');
+const guardada = await restaurarBanco({ origem, caminhoBanco, pastaBackups: pasta });
+if (guardada) console.log(`Banco atual guardado em ${guardada}`);
+console.log('Banco restaurado. O sistema aplica as migrations que faltarem ao subir. Suba com: npm start');

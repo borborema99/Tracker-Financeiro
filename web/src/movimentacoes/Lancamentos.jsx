@@ -180,6 +180,16 @@ export function Lancamentos() {
             </tbody>
           </table>
 
+          <p className="suave pequeno">
+            <a
+              href={`/api/exportar/lancamentos.csv?${new URLSearchParams(Object.entries(filtros).filter(([k]) => k !== 'pagina'))}`}
+              download
+            >
+              Exportar {filtrando ? 'estes lançamentos' : 'todos os lançamentos'} em CSV
+            </a>{' '}
+            (abre em planilha)
+          </p>
+
           <nav className="paginacao" aria-label="Paginação">
             <button type="button" className="botao" disabled={pagina <= 1} onClick={() => mudar({ pagina: String(pagina - 1) })}>
               Anterior
