@@ -64,6 +64,20 @@ test('demo: tem recorrências com ocorrências pendentes e uma conta atrasada, s
   db.close();
 });
 
+test('demo: a demonstração traz orçamento e metas, e rodar de novo não duplica nada', async () => {
+  const db = abrirBanco(':memory:');
+  migrar(db);
+  await semearDemo(db);
+  const contar = (tabela) => db.prepare(`SELECT COUNT(*) AS n FROM ${tabela}`).get().n;
+  assert.equal(contar('orcamentos'), 4);
+  assert.equal(contar('metas'), 2);
+  assert.equal(contar('metas_aportes'), 2);
+  await semearDemo(db);
+  assert.equal(contar('orcamentos'), 4);
+  assert.equal(contar('metas'), 2);
+  db.close();
+});
+
 test('demo: um banco de demonstração de antes dos cartões recebe só os cartões, sem mexer no resto', async () => {
   const db = abrirBanco(':memory:');
   migrar(db);

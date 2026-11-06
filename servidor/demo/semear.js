@@ -10,7 +10,9 @@ import {
   pagarFatura,
 } from '../banco/repositorios/cartoes.js';
 import { criarConta, listarContas } from '../banco/repositorios/contas.js';
+import { criarMeta, registrarAporte } from '../banco/repositorios/metas.js';
 import { criarMovimentacao } from '../banco/repositorios/movimentacoes.js';
+import { definirLimite } from '../banco/repositorios/orcamentos.js';
 import { criarRecorrencia } from '../banco/repositorios/recorrencias.js';
 import { hojeNoFuso } from '../dominio/datas.js';
 import { definirSenha } from '../seguranca/senha.js';
@@ -139,9 +141,34 @@ function semearCompromissos(db) {
   })();
 }
 
+/** Fase 2 (planejamento): limites de orçamento a partir do mês atual e duas metas com aportes. */
+function semearPlanejamento(db) {
+  if (lerConfig(db, 'demo_dados_v4') === '1') return;
+  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
+  const contexto = { hoje, agora: new Date() };
+  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
+
+  db.transaction(() => {
+    for (const [categoria, limite] of [['Alimentação', 100000], ['Transporte', 60000], ['Lazer', 30000], ['Saúde', 25000]]) {
+      if (categorias.has(categoria)) {
+        definirLimite(db, categorias.get(categoria), { mes_inicio: hoje.slice(0, 7), limite_centavos: limite }, contexto);
+      }
+    }
+    const reserva = criarMeta(
+      db,
+      { nome: 'Reserva de emergência', valor_alvo_centavos: 1000000, prazo: somarDias(hoje, 365), observacao: '' },
+      contexto,
+    );
+    registrarAporte(db, reserva.id, { tipo: 'aporte', valor_centavos: 250000, data: somarDias(hoje, -20), observacao: '' }, contexto);
+    const viagem = criarMeta(db, { nome: 'Viagem de fim de ano', valor_alvo_centavos: 400000, prazo: somarDias(hoje, 180), observacao: '' }, contexto);
+    registrarAporte(db, viagem.id, { tipo: 'aporte', valor_centavos: 100000, data: somarDias(hoje, -5), observacao: '' }, contexto);
+    gravarConfig(db, 'demo_dados_v4', '1');
+  })();
+}
+
 /**
  * Prepara o banco de demonstração: senha e dados fictícios (contas, lançamentos, uma transferência
- * com tarifa, compromissos pendentes, um cartão e recorrências). Cada onda acrescenta os dados dos módulos que cria.
+ * com tarifa, compromissos pendentes, um cartão, recorrências, orçamento e metas). Cada onda acrescenta os dados dos módulos que cria.
  */
 export async function semearDemo(db) {
   if (lerConfig(db, 'demo_semeado') !== '1') {
@@ -151,6 +178,7 @@ export async function semearDemo(db) {
   if (lerConfig(db, 'demo_dados_v1') === '1') {
     semearCartoes(db);
     semearCompromissos(db);
+    semearPlanejamento(db);
     return;
   }
 
@@ -212,4 +240,5 @@ export async function semearDemo(db) {
   })();
   semearCartoes(db);
   semearCompromissos(db);
+  semearPlanejamento(db);
 }

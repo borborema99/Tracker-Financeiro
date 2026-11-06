@@ -13,7 +13,11 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-07 | Atrasada é estado calculado (pendente com vencimento passado), nunca digitado. | Onda 3 | `tests/rf-07-atraso.test.js`, "RF-07 (fatura)" em `tests/dominio-cartao.test.js` |
 | RF-08 | Editar ou excluir atualiza todos os indicadores. Excluir não deixa parcelas, faturas ou transferências órfãs. | Onda 1 e 2 | `tests/rf-08-edicao-exclusao.test.js` (lançamentos), `tests/rf-08-cartoes.test.js` (compras, parcelas, faturas, reembolso) |
 | RF-09 | Uma movimentação nunca é contada duas vezes. Possível duplicidade (mesmo valor, data, conta e descrição) avisa sem bloquear. | Onda 1 e 2 | `tests/rf-09-duplicidade.test.js`, `tests/rf-09-compra-duplicada.test.js` (cartão) |
-| RF-10 | Indicadores de módulos que não existem não aparecem: nada de zero falso, dado fictício como real, botão sem efeito ou integração fingida. | todas | Onda 0: ver abaixo |
+| RF-10 | Indicadores de módulos que não existem não aparecem: nada de zero falso, dado fictício como real, botão sem efeito ou integração fingida. | todas | Onda 0: ver abaixo; blocos de orçamento e metas em `tests/rf-11-orcamento.test.js`, `tests/rf-13-metas.test.js` e `tests/planejamento-api.test.js` |
+| RF-11 | Orçamento: limite mensal por categoria principal, com vigência (vale do mês de início em diante, sem mudar meses anteriores). O gasto é o realizado; previsto e projetado ficam em campos próprios e a situação olha só o realizado. | Fase 2, Onda 1 | `tests/rf-11-orcamento.test.js` |
+| RF-12 | A soma do gasto por categoria (com e sem orçamento) é a despesa realizada do resumo: nada é contado duas vezes nem some (cartão, estorno, divisão, tarifa; fatura paga e transferência não entram). | Fase 2, Onda 1 | `tests/rf-12-orcamento-soma.test.js` |
+| RF-13 | Meta é reserva virtual: aporte e resgate não alteram saldo nem viram receita ou despesa. O acumulado é aportes − resgates e nunca fica negativo. | Fase 2, Onda 1 | `tests/rf-13-metas.test.js` |
+| RF-14 | Situação da meta (concluída, atrasada, em andamento) e valor necessário por mês são calculados, nunca digitados; sem prazo, prazo vencido ou meta concluída não há valor por mês. | Fase 2, Onda 1 | `tests/rf-14-meta-progresso.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -49,6 +53,19 @@ Cálculo em `servidor/dominio/compromisso.js`, `recorrencia.js`, `fluxo.js` e `a
 - **Projeção.** Saldo total de hoje (contas não arquivadas) mais compromissos pendentes no vencimento e faturas de cartão em aberto no vencimento da fatura, para 7, 15, 30, 60 ou 90 dias. O que já venceu e não foi baixado pesa em hoje. Detecta períodos de saldo negativo e o menor saldo. É a visão "projetada" do RF-02, separada do realizado e do previsto.
 - **Alertas.** Calculados na hora, só dentro do app: conta a pagar ou recebimento atrasado, vencimento em até 3 dias, fatura atrasada ou vencendo, fechamento de fatura em até 3 dias e saldo projetado negativo nos próximos 30 dias. Sem pendência não há alerta (RF-10); o selo do sino some.
 - **Início (RF-10).** O bloco de compromissos e o gráfico de projeção só aparecem se existir compromisso pendente ou cartão; o bloco `compromissos` do `/api/resumo` só vem nesse caso.
+
+## Orçamento e metas (Fase 2, Onda 1)
+
+Cálculo em `servidor/dominio/orcamento.js` e `meta.js` (funções puras); a tela só formata. Decisões em `docs/adr/006-fase-2-planejamento.md`.
+
+- **Limite com vigência (RF-11).** Só a categoria principal de despesa tem limite; subcategorias somam nela. O limite de um mês é o registro de `mes_inicio` mais recente que não passa dele; limite 0 tira o orçamento daquele mês em diante. Alterar o limite não muda meses anteriores.
+- **Gasto (RF-11 e RF-12).** Mesma base do resumo: despesas liquidadas pela data de liquidação, compras no cartão pela data da compra e estornos (negativos) pela data do estorno. Lançamento dividido soma em cada categoria; o sem categoria aparece em "Sem categoria". Pagar fatura e transferência não são gasto.
+- **Três números separados (RF-02).** `realizado_centavos` (gasto), `previsto_centavos` (pendente do mês) e `projetado_centavos` (soma dos dois, só como projeção). `restante` e `percentual` usam só o realizado.
+- **Situação.** `estourado` se o realizado passa do limite; `atencao` a partir de 80% (inclusive o limite exato); senão `ok`. Contas em centavos, sem arredondar percentual. `vai_estourar` é verdadeiro quando o projetado passa do limite e a situação ainda não é `estourado`.
+- **Totais.** Só somam categorias com orçamento; o gasto de categoria sem limite aparece à parte (`sem_orcamento`).
+- **Alertas.** Orçamento estourado (nível médio) e perto do limite (informativo), só do mês de hoje.
+- **Meta (RF-13 e RF-14).** Reserva virtual sem efeito em saldo. Acumulado = aportes − resgates; resgate acima do acumulado e remoção de aporte que o deixaria negativo são recusados (409); aporte no futuro é recusado. Situação calculada: concluída (acumulado ≥ alvo), atrasada (prazo anterior a hoje e não concluída), em andamento. Valor por mês = falta ÷ meses restantes (mês de hoje e do prazo contam), arredondado para cima.
+- **Início (RF-10).** O bloco `orcamento` do `/api/resumo` só vem com limite em vigor no mês; o bloco `metas`, só com meta em aberto.
 
 ## RF-10 na Onda 0
 

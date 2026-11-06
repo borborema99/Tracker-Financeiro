@@ -17,6 +17,7 @@ import { rotasCartoes } from './rotas/cartoes.js';
 import { rotasCompromissos } from './rotas/compromissos.js';
 import { rotasFluxo } from './rotas/fluxo.js';
 import { rotasExportar } from './rotas/exportar.js';
+import { rotasPlanejamento } from './rotas/planejamento.js';
 
 const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -101,6 +102,7 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasCompromissos);
   await app.register(rotasFluxo);
   await app.register(rotasExportar);
+  await app.register(rotasPlanejamento);
 
   const temFront = existsSync(config.pastaWeb);
   if (temFront) {

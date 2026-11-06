@@ -5,6 +5,7 @@ import { montarAlertas } from '../../dominio/alertas.js';
 import { faturasEmAberto } from './cartoes.js';
 import { compromissosPendentes } from './compromissos.js';
 import { listarContas } from './contas.js';
+import { orcamentoSeExistir } from './orcamentos.js';
 
 /** O que de fato entrou e saiu das contas (RF-02, visão de caixa): liquidadas e pagamentos de fatura. */
 function eventosRealizados(db, de, ate) {
@@ -104,6 +105,7 @@ export function alertasDoApp(db, hoje) {
     compromissos: compromissosPendentes(db),
     faturas: faturasEmAberto(db, hoje),
     projecao: projecaoDeSaldo(db, hoje, 30),
+    orcamento: orcamentoSeExistir(db, hoje.slice(0, 7)),
   });
   return { alertas, total: alertas.length };
 }

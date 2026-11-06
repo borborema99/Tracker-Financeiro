@@ -73,7 +73,7 @@ export function Dashboard() {
     );
   }
 
-  const { saldos, realizado, previsto, mes, cartoes, compromissos } = resumo.data;
+  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas } = resumo.data;
   return (
     <section>
       <h1>Início</h1>
@@ -126,6 +126,31 @@ export function Dashboard() {
             ))}
           </div>
         </>
+      )}
+
+      {(orcamento || metas) && <h2>Planejamento</h2>}
+      {(orcamento || metas) && (
+        <div className="totais-lista">
+          {orcamento && (
+            <div className="cartao">
+              <h3>Orçamento de {nomeDoMes(mes)}</h3>
+              <p>Limites <Valor centavos={orcamento.limite_centavos} /></p>
+              <p>Gasto <Valor centavos={orcamento.realizado_centavos} tipo="saida" /></p>
+              <p>{orcamento.restante_centavos >= 0 ? 'Resta' : 'Passou'} <Valor centavos={Math.abs(orcamento.restante_centavos)} /></p>
+              {orcamento.estourados > 0 && <p className="suave pequeno">{orcamento.estourados} categoria(s) acima do limite.</p>}
+              <Link className="botao" to="/orcamento">Ver orçamento</Link>
+            </div>
+          )}
+          {metas && (
+            <div className="cartao">
+              <h3>Metas</h3>
+              <p>{metas.abertas} em aberto{metas.atrasadas > 0 ? `, ${metas.atrasadas} com prazo vencido` : ''}</p>
+              <p>Guardado <Valor centavos={metas.acumulado_centavos} tipo="entrada" /></p>
+              <p>Alvo <Valor centavos={metas.alvo_centavos} /></p>
+              <Link className="botao" to="/metas">Ver metas</Link>
+            </div>
+          )}
+        </div>
       )}
 
       {(compromissos || cartoes) && <Projecao />}

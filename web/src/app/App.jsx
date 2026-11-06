@@ -16,6 +16,8 @@ import { Dashboard } from '../dashboard/Dashboard.jsx';
 import { FormularioMovimentacao } from '../movimentacoes/FormularioMovimentacao.jsx';
 import { Historico } from '../movimentacoes/Historico.jsx';
 import { Lancamentos } from '../movimentacoes/Lancamentos.jsx';
+import { Metas } from '../metas/Metas.jsx';
+import { Orcamento } from '../orcamento/Orcamento.jsx';
 import { Layout } from './Layout.jsx';
 import { Mais } from './Mais.jsx';
 
@@ -55,6 +57,8 @@ export function App() {
             </Suspense>
           }
         />
+        <Route path="orcamento" element={<Orcamento fuso={sessao.fuso} />} />
+        <Route path="metas" element={<Metas fuso={sessao.fuso} />} />
         <Route path="alertas" element={<Alertas />} />
         <Route path="mais" element={<Mais />} />
         <Route path="categorias" element={<Categorias />} />

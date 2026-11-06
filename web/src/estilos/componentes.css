@@ -121,6 +121,15 @@ a.botao, a.botao-primario {
 .alerta-media { border-color: var(--aviso); }
 .alerta-info { border-color: var(--acento); }
 .alerta h2 { margin-top: 0; }
+/* Planejamento: orçamento e metas. A cor nunca é o único sinal: toda situação tem rótulo em texto. */
+.medidor { width: 100%; height: 0.6rem; accent-color: var(--acento); }
+.medidor.atencao, .medidor.atrasada { accent-color: var(--aviso); }
+.medidor.estourado { accent-color: var(--saida); }
+.medidor.concluida { accent-color: var(--entrada); }
+.etiqueta.ok, .etiqueta.concluida { color: var(--entrada); border-color: var(--entrada); }
+.etiqueta.atencao { color: var(--aviso); border-color: var(--aviso); }
+.etiqueta.estourado { color: var(--saida); border-color: var(--saida); }
+.orcamento-item p { margin: 0.25rem 0; }
 .compromisso .item-topo p { margin: 0.15rem 0 0; }
 .compromisso .saldo { align-items: flex-end; gap: 0.25rem; }
 .inline-form { border-top: 1px solid var(--borda); margin-top: 0.75rem; padding-top: 0.75rem; }

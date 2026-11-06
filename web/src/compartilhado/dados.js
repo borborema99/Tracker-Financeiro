@@ -15,6 +15,7 @@ export function useInvalidarDados() {
         'contas', 'categorias', 'movimentacoes', 'movimentacao', 'resumo', 'historico',
         'cartoes', 'cartao', 'faturas', 'fatura', 'projecao', 'compras', 'compra',
         'compromissos', 'recorrencias', 'recorrencia', 'fluxo', 'projecao-saldo', 'calendario', 'alertas',
+        'orcamento', 'metas', 'meta',
       ].map((k) =>
         cliente.invalidateQueries({ queryKey: [k] }),
       ),

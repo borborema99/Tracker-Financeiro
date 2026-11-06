@@ -1,5 +1,6 @@
 import { conflito, invalido, naoEncontrado } from '../../erros.js';
 import { auditar } from '../auditoria.js';
+import { temOrcamentoEmVigor } from './orcamentos.js';
 
 const SQL_LISTA = `
   SELECT c.id, c.nome, c.tipo, c.pai_id, c.papel, c.arquivada,
@@ -70,6 +71,9 @@ export function atualizarCategoria(db, id, dados, { agora = new Date() } = {}) {
   if (temFilhas && dados.pai_id != null) {
     throw invalido({ pai_id: 'Uma categoria com subcategorias não pode virar subcategoria.' });
   }
+  if (dados.pai_id != null && temOrcamentoEmVigor(db, id)) {
+    throw invalido({ pai_id: 'Esta categoria tem orçamento. Zere o limite em Orçamento antes de torná-la subcategoria.' });
+  }
   validar(db, dados, id);
   return db.transaction(() => {
     db.prepare('UPDATE categorias SET nome = ?, pai_id = ?, arquivada = ?, atualizada_em = ? WHERE id = ?').run(
@@ -93,6 +97,7 @@ export function excluirCategoria(db, id, { agora = new Date() } = {}) {
     throw conflito('Esta categoria tem subcategorias. Exclua ou mova as subcategorias antes.');
   }
   if (antes.usos > 0) throw conflito('Esta categoria tem lançamentos. Arquive em vez de excluir.');
+  if (temOrcamentoEmVigor(db, id)) throw conflito('Esta categoria tem orçamento. Zere o limite em Orçamento antes de excluir.');
   db.transaction(() => {
     db.prepare('UPDATE categorias SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(
       agora.toISOString(),

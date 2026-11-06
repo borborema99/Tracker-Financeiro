@@ -14,6 +14,13 @@
 
 Ver `docs/regras-financeiras.md` (RF-01 a RF-10).
 
-## Fora da Fase 1
+## Fase 2: planejamento (em andamento, ver ADR 006)
 
-Fases 2 a 4: orçamento, metas, dívidas, assinaturas, relatórios, patrimônio líquido, investimentos, múltiplas moedas, importação OFX, anexos e comprovantes, IA, integração bancária, cotações automáticas, notificações push e por e-mail.
+1. **Onda 1 (pronta):** orçamento mensal por categoria e metas com aportes.
+2. **Onda 2:** dívidas e assinaturas.
+
+## Fora das Fases 1 e 2
+
+- **Fase 3 (divisão provisória, ADR 006):** relatórios, patrimônio líquido, investimentos.
+- **Fase 4 (divisão provisória, ADR 006):** múltiplas moedas, importação OFX, anexos e comprovantes, IA, integração bancária, cotações automáticas.
+- **Sem fase definida:** notificações push e por e-mail.

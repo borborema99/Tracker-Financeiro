@@ -14,9 +14,10 @@ const soma = (itens) => itens.reduce((s, i) => s + i.valor_centavos, 0);
 /**
  * `compromissos`: pendentes { tipo, valor_centavos, data_vencimento, data_competencia };
  * `faturas`: { id, cartao_nome, referencia, data_fechamento, data_vencimento, total_centavos, saldo_centavos, status };
- * `projecao`: resultado de `projetarSaldo`.
+ * `projecao`: resultado de `projetarSaldo`;
+ * `orcamento` (opcional): resultado de `montarOrcamento` do mês de hoje, ou null se não houver limites.
  */
-export function montarAlertas({ hoje, compromissos, faturas, projecao, diasAviso = DIAS_DE_AVISO }) {
+export function montarAlertas({ hoje, compromissos, faturas, projecao, orcamento = null, diasAviso = DIAS_DE_AVISO }) {
   const alertas = [];
   const dias = (iso) => diasEntre(hoje, iso);
   const comVenc = compromissos.map((m) => ({ ...m, vencimento: vencimentoEfetivo(m) }));
@@ -89,6 +90,28 @@ export function montarAlertas({ hoje, compromissos, faturas, projecao, diasAviso
       titulo: 'Saldo projetado negativo',
       mensagem: `A projeção de ${projecao.serie.length - 1} dias fica negativa a partir de ${dataBr(negativo.de)} (mínimo ${formatarDinheiro(negativo.minimo_centavos)}).`,
       link: '/fluxo',
+    });
+  }
+
+  // Orçamento do mês (RF-11): a situação é calculada só do realizado; o previsto não dispara alerta de estouro.
+  const estourados = orcamento?.itens.filter((i) => i.situacao === 'estourado') ?? [];
+  if (estourados.length > 0) {
+    alertas.push({
+      codigo: 'orcamento_estourado',
+      nivel: 'media',
+      titulo: plural(estourados.length, 'orçamento estourado', 'orçamentos estourados'),
+      mensagem: estourados.map((i) => `${i.nome} (${i.percentual}%)`).join(', ') + '.',
+      link: '/orcamento',
+    });
+  }
+  const emAtencao = orcamento?.itens.filter((i) => i.situacao === 'atencao') ?? [];
+  if (emAtencao.length > 0) {
+    alertas.push({
+      codigo: 'orcamento_atencao',
+      nivel: 'info',
+      titulo: `${plural(emAtencao.length, 'orçamento', 'orçamentos')} perto do limite`,
+      mensagem: emAtencao.map((i) => `${i.nome} (${i.percentual}%)`).join(', ') + '.',
+      link: '/orcamento',
     });
   }
 
