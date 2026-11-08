@@ -9,9 +9,9 @@ export const HORIZONTE_DE_GERACAO_DIAS = 90;
 
 const COLUNAS =
   'id, tipo, descricao, valor_centavos, conta_id, categoria_id, frequencia, data_inicio, data_fim, ativa, ' +
-  'observacao, criada_em, atualizada_em';
+  'assinatura, observacao, criada_em, atualizada_em';
 
-const paraApi = (l) => ({ ...l, ativa: l.ativa === 1 });
+const paraApi = (l) => ({ ...l, ativa: l.ativa === 1, assinatura: l.assinatura === 1 });
 
 export function obterRecorrencia(db, id) {
   const l = db.prepare(`SELECT ${COLUNAS} FROM recorrencias WHERE id = ? AND excluida_em IS NULL`).get(id);
@@ -66,6 +66,17 @@ function removerFuturasPendentes(db, id, hoje, iso) {
     const antes = obterMovimentacao(db, alvo);
     db.prepare('UPDATE movimentacoes SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(iso, iso, alvo);
     auditar(db, { entidade: 'movimentacao', id: alvo, acao: 'excluir', antes });
+  }
+}
+
+/** Marca como puladas as datas anteriores a hoje que não têm lançamento, para que não voltem a ser geradas. */
+function pularOcorrenciasPassadas(db, r, id, hoje) {
+  const existentes = new Set(
+    db.prepare('SELECT data_ocorrencia FROM movimentacoes WHERE recorrencia_id = ? AND excluida_em IS NULL').all(id).map((l) => l.data_ocorrencia),
+  );
+  const pular = db.prepare('INSERT OR IGNORE INTO recorrencias_puladas (recorrencia_id, data_ocorrencia) VALUES (?, ?)');
+  for (const data of ocorrenciasDaRecorrencia(r, somarDias(hoje, -1))) {
+    if (!existentes.has(data)) pular.run(id, data);
   }
 }
 
@@ -131,15 +142,16 @@ export function criarRecorrencia(db, dados, { hoje, agora = new Date() }) {
     const { lastInsertRowid } = db
       .prepare(
         `INSERT INTO recorrencias (tipo, descricao, valor_centavos, conta_id, categoria_id, frequencia,
-           data_inicio, data_fim, ativa, observacao, criada_em, atualizada_em)
+           data_inicio, data_fim, ativa, assinatura, observacao, criada_em, atualizada_em)
          VALUES (@tipo, @descricao, @valor_centavos, @conta_id, @categoria_id, @frequencia,
-           @data_inicio, @data_fim, @ativa, @observacao, @iso, @iso)`,
+           @data_inicio, @data_fim, @ativa, @assinatura, @observacao, @iso, @iso)`,
       )
       .run({
         ...dados,
         categoria_id: dados.categoria_id ?? null,
         data_fim: dados.data_fim ?? null,
         ativa: dados.ativa ? 1 : 0,
+        assinatura: dados.assinatura ? 1 : 0,
         iso,
       });
     const id = Number(lastInsertRowid);
@@ -160,15 +172,19 @@ export function atualizarRecorrencia(db, id, dados, { hoje, agora = new Date() }
     db.prepare(
       `UPDATE recorrencias SET tipo = @tipo, descricao = @descricao, valor_centavos = @valor_centavos,
          conta_id = @conta_id, categoria_id = @categoria_id, frequencia = @frequencia, data_inicio = @data_inicio,
-         data_fim = @data_fim, ativa = @ativa, observacao = @observacao, atualizada_em = @iso WHERE id = @id`,
+         data_fim = @data_fim, ativa = @ativa, assinatura = @assinatura, observacao = @observacao,
+         atualizada_em = @iso WHERE id = @id`,
     ).run({
       ...dados,
       id,
       categoria_id: dados.categoria_id ?? null,
       data_fim: dados.data_fim ?? null,
       ativa: dados.ativa ? 1 : 0,
+      assinatura: dados.assinatura ? 1 : 0,
       iso,
     });
+    // Reativar não recria as cobranças do período em que esteve pausada (RF-18): elas viram "puladas".
+    if (!antes.ativa && dados.ativa) pularOcorrenciasPassadas(db, { ...antes, ...dados }, id, hoje);
     const depois = obterRecorrencia(db, id);
     auditar(db, { entidade: 'recorrencia', id, acao: 'editar', antes, depois });
     removerFuturasPendentes(db, id, hoje, iso);

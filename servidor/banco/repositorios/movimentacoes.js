@@ -10,7 +10,7 @@ const COLUNAS = [
   'id', 'tipo', 'descricao', 'valor_centavos', 'conta_id', 'conta_destino_id', 'categoria_id',
   'data_competencia', 'data_vencimento', 'data_liquidacao', 'status', 'observacao',
   'transferencia_id', 'reembolso_de_id', 'recorrencia_id', 'data_ocorrencia', 'baixa_de_id',
-  'criada_em', 'atualizada_em',
+  'divida_id', 'divida_parcela', 'criada_em', 'atualizada_em',
 ];
 const SQL_COLUNAS = COLUNAS.join(', ');
 const SQL_COLUNAS_M = COLUNAS.map((c) => `m.${c}`).join(', ');
@@ -152,10 +152,12 @@ function inserirLinha(db, d, iso, transferenciaId = null) {
     .prepare(
       `INSERT INTO movimentacoes (tipo, descricao, valor_centavos, conta_id, conta_destino_id, categoria_id,
          data_competencia, data_vencimento, data_liquidacao, status, observacao, transferencia_id,
-         reembolso_de_id, recorrencia_id, data_ocorrencia, baixa_de_id, criada_em, atualizada_em)
+         reembolso_de_id, recorrencia_id, data_ocorrencia, baixa_de_id, divida_id, divida_parcela,
+         criada_em, atualizada_em)
        VALUES (@tipo, @descricao, @valor_centavos, @conta_id, @conta_destino_id, @categoria_id,
          @data_competencia, @data_vencimento, @data_liquidacao, @status, @observacao, @transferencia_id,
-         @reembolso_de_id, @recorrencia_id, @data_ocorrencia, @baixa_de_id, @iso, @iso)`,
+         @reembolso_de_id, @recorrencia_id, @data_ocorrencia, @baixa_de_id, @divida_id, @divida_parcela,
+         @iso, @iso)`,
     )
     .run({
       tipo: d.tipo,
@@ -174,6 +176,8 @@ function inserirLinha(db, d, iso, transferenciaId = null) {
       recorrencia_id: d.recorrencia_id ?? null,
       data_ocorrencia: d.data_ocorrencia ?? null,
       baixa_de_id: d.baixa_de_id ?? null,
+      divida_id: d.divida_id ?? null,
+      divida_parcela: d.divida_parcela ?? null,
       iso,
     });
   return Number(lastInsertRowid);

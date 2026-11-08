@@ -18,6 +18,8 @@ import { Historico } from '../movimentacoes/Historico.jsx';
 import { Lancamentos } from '../movimentacoes/Lancamentos.jsx';
 import { Metas } from '../metas/Metas.jsx';
 import { Orcamento } from '../orcamento/Orcamento.jsx';
+import { Assinaturas } from '../assinaturas/Assinaturas.jsx';
+import { DividaDetalhe, Dividas, FormularioDivida } from '../dividas/Dividas.jsx';
 import { Layout } from './Layout.jsx';
 import { Mais } from './Mais.jsx';
 
@@ -59,6 +61,10 @@ export function App() {
         />
         <Route path="orcamento" element={<Orcamento fuso={sessao.fuso} />} />
         <Route path="metas" element={<Metas fuso={sessao.fuso} />} />
+        <Route path="dividas" element={<Dividas />} />
+        <Route path="dividas/nova" element={<FormularioDivida fuso={sessao.fuso} />} />
+        <Route path="dividas/:id" element={<DividaDetalhe />} />
+        <Route path="assinaturas" element={<Assinaturas />} />
         <Route path="alertas" element={<Alertas />} />
         <Route path="mais" element={<Mais />} />
         <Route path="categorias" element={<Categorias />} />

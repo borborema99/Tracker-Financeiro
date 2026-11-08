@@ -2,6 +2,8 @@ import { esquemaMes } from '../../contratos/movimentacoes.js';
 import { movimentosDeCartaoDoPeriodo, resumoDosCartoes } from '../banco/repositorios/cartoes.js';
 import { compromissosPendentes } from '../banco/repositorios/compromissos.js';
 import { listarContas } from '../banco/repositorios/contas.js';
+import { resumoDeAssinaturas } from '../banco/repositorios/assinaturas.js';
+import { resumoDeDividas } from '../banco/repositorios/dividas.js';
 import { resumoDeMetas } from '../banco/repositorios/metas.js';
 import { orcamentoSeExistir } from '../banco/repositorios/orcamentos.js';
 import { totaisDeCompromissos } from '../dominio/compromisso.js';
@@ -33,6 +35,8 @@ export async function rotasResumo(app) {
     const aReceber = compromissosPendentes(db, 'receita');
     const orcamento = orcamentoSeExistir(db, mesAlvo);
     const metas = resumoDeMetas(db, hoje);
+    const dividas = resumoDeDividas(db, hoje);
+    const assinaturas = resumoDeAssinaturas(db);
     return {
       mes: mesAlvo,
       periodo,
@@ -55,6 +59,8 @@ export async function rotasResumo(app) {
       // Planejamento (RF-10): só aparece se existir limite em vigor no mês ou meta ainda aberta.
       ...(orcamento ? { orcamento: orcamento.totais } : {}),
       ...(metas ? { metas } : {}),
+      ...(dividas ? { dividas } : {}),
+      ...(assinaturas ? { assinaturas } : {}),
     };
   });
 }

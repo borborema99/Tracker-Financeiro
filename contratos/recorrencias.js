@@ -20,7 +20,12 @@ export const esquemaRecorrencia = z
     data_inicio: dataIso,
     data_fim: dataIso.nullable().optional(),
     ativa: z.boolean().default(true),
+    assinatura: z.boolean().default(false),
     observacao: z.string().trim().max(1000, 'Observação longa demais (máx. 1000).').default(''),
+  })
+  .refine((r) => !r.assinatura || r.tipo === 'despesa', {
+    path: ['assinatura'],
+    message: 'Só uma despesa pode ser assinatura.',
   })
   .refine((r) => !r.data_fim || r.data_fim >= r.data_inicio, {
     path: ['data_fim'],

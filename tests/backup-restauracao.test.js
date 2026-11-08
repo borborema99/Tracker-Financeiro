@@ -130,7 +130,7 @@ test('restaurar: um backup de esquema antigo é aceito e o migrar o atualiza sem
   await restaurarBanco({ origem: join(pasta, 'velho.db'), caminhoBanco: caminho, pastaBackups: join(pasta, 'backups') });
   const db = abrir(caminho);
   assert.equal(db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'recorrencias'").get(), undefined);
-  assert.deepEqual(migrar(db), ['004_compromissos.sql', '005_planejamento.sql']);
+  assert.deepEqual(migrar(db), ['004_compromissos.sql', '005_planejamento.sql', '006_dividas_assinaturas.sql']);
   assert.deepEqual(saldos(db), [['Corrente', 1234 - 100]]);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM recorrencias').get().n, 0);
 });

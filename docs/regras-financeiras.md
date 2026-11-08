@@ -18,6 +18,10 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-12 | A soma do gasto por categoria (com e sem orçamento) é a despesa realizada do resumo: nada é contado duas vezes nem some (cartão, estorno, divisão, tarifa; fatura paga e transferência não entram). | Fase 2, Onda 1 | `tests/rf-12-orcamento-soma.test.js` |
 | RF-13 | Meta é reserva virtual: aporte e resgate não alteram saldo nem viram receita ou despesa. O acumulado é aportes − resgates e nunca fica negativo. | Fase 2, Onda 1 | `tests/rf-13-metas.test.js` |
 | RF-14 | Situação da meta (concluída, atrasada, em andamento) e valor necessário por mês são calculados, nunca digitados; sem prazo, prazo vencido ou meta concluída não há valor por mês. | Fase 2, Onda 1 | `tests/rf-14-meta-progresso.test.js` |
+| RF-15 | Dívida parcelada: as parcelas somam o total (centavos que sobram na primeira), vencem uma por mês, e pago + restante = total. Baixa parcial mantém a ligação com a dívida e a parcela. | Fase 2, Onda 2 | `tests/rf-15-dividas.test.js` |
+| RF-16 | A dívida herda o que já existe dos lançamentos: atraso, fluxo e projeção, orçamento e alertas. Excluir a dívida não deixa parcela pendente órfã. | Fase 2, Onda 2 | `tests/rf-16-divida-integracao.test.js` |
+| RF-17 | Custo da assinatura: anual = valor × cobranças por ano; equivalente mensal = anual ÷ 12 arredondado; só as ativas entram nos totais. | Fase 2, Onda 2 | `tests/rf-17-assinaturas.test.js` |
+| RF-18 | Assinatura pausada não gera cobranças. Reativar não recria as cobranças do período pausado (vale para toda recorrência). | Fase 2, Onda 2 | `tests/rf-18-assinatura-pausa.test.js`, `tests/dividas-assinaturas-api.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -66,6 +70,17 @@ Cálculo em `servidor/dominio/orcamento.js` e `meta.js` (funções puras); a tel
 - **Alertas.** Orçamento estourado (nível médio) e perto do limite (informativo), só do mês de hoje.
 - **Meta (RF-13 e RF-14).** Reserva virtual sem efeito em saldo. Acumulado = aportes − resgates; resgate acima do acumulado e remoção de aporte que o deixaria negativo são recusados (409); aporte no futuro é recusado. Situação calculada: concluída (acumulado ≥ alvo), atrasada (prazo anterior a hoje e não concluída), em andamento. Valor por mês = falta ÷ meses restantes (mês de hoje e do prazo contam), arredondado para cima.
 - **Início (RF-10).** O bloco `orcamento` do `/api/resumo` só vem com limite em vigor no mês; o bloco `metas`, só com meta em aberto.
+
+## Dívidas e assinaturas (Fase 2, Onda 2)
+
+Cálculo em `servidor/dominio/divida.js` e `assinatura.js` (puras). Decisões em `docs/adr/007-dividas-e-assinaturas.md`.
+
+- **Parcelas (RF-15).** `gerarParcelas` divide o total com `dividirEmParcelas` e vence uma por mês (dia ajustado ao fim do mês). Cada parcela é uma despesa pendente ligada à dívida.
+- **Saldo devedor (RF-15).** Não é gravado: pago = parcelas liquidadas, restante = pendentes, atrasado = pendentes vencidas antes de hoje. Pago + restante = total. Parcela com baixa parcial só conta como paga quando nenhuma linha dela está pendente.
+- **Integração (RF-16).** Por serem despesas pendentes comuns, as parcelas entram em atraso, fluxo, projeção, alertas e no previsto do orçamento. Excluir a dívida apaga as pendentes e mantém as pagas.
+- **Assinatura (RF-17).** Custo anual = valor × cobranças/ano (semanal 52, quinzenal 26, mensal 12, anual 1); equivalente mensal = anual ÷ 12 arredondado; totais somam só as ativas e derivam o mensal do anual total.
+- **Pausa (RF-18).** Pausada não gera cobranças. Ao reativar, as datas passadas sem lançamento viram puladas, para não aparecerem como atrasadas.
+- **Início (RF-10).** Os blocos `dividas` e `assinaturas` do `/api/resumo` só vêm com dívida em aberto ou assinatura ativa.
 
 ## RF-10 na Onda 0
 

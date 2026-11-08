@@ -8,7 +8,7 @@ Tracker Financeiro: controle financeiro pessoal local, uma instância = uma pess
 
 ## Onde ficam as coisas
 
-- Regras financeiras (RF-01 a RF-10): `docs/regras-financeiras.md`. Cada regra vira teste com o ID no nome (`RF-01 ...`).
+- Regras financeiras (RF-01 a RF-18): `docs/regras-financeiras.md`. Cada regra vira teste com o ID no nome (`RF-01 ...`).
 - Cálculo financeiro: só em `servidor/dominio/`, funções puras. A API devolve indicadores prontos; o front só formata. Nunca duplicar regra em tela.
 - Dinheiro: `contratos/dinheiro.js` (parse, format, parcelas). Compartilhado com o front, por isso fora de `servidor/dominio/` (ADR 001).
 - Contratos Zod: `contratos/`. O servidor é a autoridade.
@@ -24,7 +24,7 @@ Tracker Financeiro: controle financeiro pessoal local, uma instância = uma pess
 - Segurança: scrypt, cookie HttpOnly + SameSite=Strict (Secure só em HTTPS), CSRF por token + Origin, limite de 5 erros/15 min, CSP sem `unsafe-inline` (nada de `style=""` nem `<style>` inline no front).
 - App funciona completo sem service worker; manifest e SW só em contexto seguro.
 - Menu só mostra módulo que funciona. Sem zero falso, dado fictício como real, botão sem efeito.
-- Fases 2 a 4 não existem ainda: sem botão nem menu para elas.
+- Fases 1 e 2 existem. Fases 3 e 4 não existem ainda: sem botão nem menu para elas.
 
 ## Modo de trabalho
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { FREQUENCIAS, ROTULOS_FREQUENCIA } from '../../../contratos/recorrencias.js';
 import { api } from '../compartilhado/api.js';
@@ -20,7 +20,8 @@ function Linha({ r, contas }) {
     <li className={`cartao ${r.ativa ? '' : 'arquivada'}`}>
       <div className="item-topo">
         <div>
-          <strong>{r.descricao}</strong> {!r.ativa && <span className="etiqueta">Pausada</span>}
+          <strong>{r.descricao}</strong> {r.assinatura && <span className="etiqueta">Assinatura</span>}{' '}
+          {!r.ativa && <span className="etiqueta">Pausada</span>}
           <p className="suave pequeno">
             {ROTULOS_FREQUENCIA[r.frequencia]} · {r.tipo === 'receita' ? 'receita' : 'despesa'} · {contas.get(r.conta_id)?.nome ?? '—'}
           </p>
@@ -83,7 +84,10 @@ export function Recorrencias() {
 function Formulario({ origem, contas, categorias, fuso }) {
   const navegar = useNavigate();
   const invalidar = useInvalidarDados();
+  const [params] = useSearchParams();
   const edicao = origem ?? null;
+  const [assinatura, setAssinatura] = useState(edicao?.assinatura ?? params.get('assinatura') === '1');
+  const voltarPara = assinatura ? '/assinaturas' : '/recorrencias';
   const [tipo, setTipo] = useState(edicao?.tipo ?? 'despesa');
   const [descricao, setDescricao] = useState(edicao?.descricao ?? '');
   const [valor, setValor] = useState(edicao?.valor_centavos ?? null);
@@ -115,12 +119,13 @@ function Formulario({ origem, contas, categorias, fuso }) {
           data_inicio: inicio,
           data_fim: fim || null,
           ativa,
+          assinatura,
           observacao,
         },
       }),
     onSuccess: async () => {
       await invalidar();
-      navegar('/recorrencias');
+      navegar(voltarPara);
     },
   });
   const campos = salvar.error?.campos ?? {};
@@ -128,7 +133,7 @@ function Formulario({ origem, contas, categorias, fuso }) {
 
   return (
     <section>
-      <h1>{edicao ? 'Editar recorrência' : 'Nova recorrência'}</h1>
+      <h1>{edicao ? (assinatura ? 'Editar assinatura' : 'Editar recorrência') : assinatura ? 'Nova assinatura' : 'Nova recorrência'}</h1>
       <form
         className="cartao"
         onSubmit={(e) => {
@@ -146,6 +151,7 @@ function Formulario({ origem, contas, categorias, fuso }) {
               onClick={() => {
                 setTipo(t);
                 setCategoriaId('');
+                if (t === 'receita') setAssinatura(false);
               }}
             >
               {rotulo}
@@ -213,6 +219,12 @@ function Formulario({ origem, contas, categorias, fuso }) {
           <input type="checkbox" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} />
           <span>Ativa (gera novas ocorrências)</span>
         </label>
+        {tipo === 'despesa' && (
+          <label className="linha-checkbox">
+            <input type="checkbox" checked={assinatura} onChange={(e) => setAssinatura(e.target.checked)} />
+            <span>É uma assinatura (aparece em Assinaturas, com o custo por mês e por ano)</span>
+          </label>
+        )}
         {edicao && (
           <p className="suave pequeno">
             Mudanças valem daqui para frente: as ocorrências pendentes futuras são refeitas; o que já venceu ou foi liquidado não muda.
@@ -221,7 +233,7 @@ function Formulario({ origem, contas, categorias, fuso }) {
         {salvar.error && !salvar.error.campos && <p role="alert" className="erro">{salvar.error.message}</p>}
         <div className="acoes">
           <button type="submit" className="botao-primario" disabled={salvar.isPending || valor == null || !contaId}>Salvar</button>
-          <Link className="botao" to="/recorrencias">Cancelar</Link>
+          <Link className="botao" to={voltarPara}>Cancelar</Link>
         </div>
       </form>
     </section>

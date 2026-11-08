@@ -14,10 +14,10 @@
 
 Ver `docs/regras-financeiras.md` (RF-01 a RF-10).
 
-## Fase 2: planejamento (em andamento, ver ADR 006)
+## Fase 2: planejamento (implementada, ver ADR 006 e 007)
 
 1. **Onda 1 (pronta):** orçamento mensal por categoria e metas com aportes.
-2. **Onda 2:** dívidas e assinaturas.
+2. **Onda 2 (pronta):** dívidas parceladas e assinaturas.
 
 ## Fora das Fases 1 e 2
 

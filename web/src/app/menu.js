@@ -10,6 +10,8 @@ export const ITENS_MENU = [
   { para: '/recorrencias', rotulo: 'Recorrências', icone: 'recorrencias' },
   { para: '/orcamento', rotulo: 'Orçamento', icone: 'orcamento' },
   { para: '/metas', rotulo: 'Metas', icone: 'metas' },
+  { para: '/dividas', rotulo: 'Dívidas', icone: 'dividas' },
+  { para: '/assinaturas', rotulo: 'Assinaturas', icone: 'assinaturas' },
   { para: '/categorias', rotulo: 'Categorias', icone: 'categorias' },
   { para: '/alertas', rotulo: 'Alertas', icone: 'alertas' },
   { para: '/config', rotulo: 'Config.', icone: 'config' },

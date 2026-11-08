@@ -11,7 +11,8 @@ import {
 } from '../banco/repositorios/cartoes.js';
 import { criarConta, listarContas } from '../banco/repositorios/contas.js';
 import { criarMeta, registrarAporte } from '../banco/repositorios/metas.js';
-import { criarMovimentacao } from '../banco/repositorios/movimentacoes.js';
+import { criarDivida } from '../banco/repositorios/dividas.js';
+import { criarMovimentacao, liquidarMovimentacao } from '../banco/repositorios/movimentacoes.js';
 import { definirLimite } from '../banco/repositorios/orcamentos.js';
 import { criarRecorrencia } from '../banco/repositorios/recorrencias.js';
 import { hojeNoFuso } from '../dominio/datas.js';
@@ -166,9 +167,51 @@ function semearPlanejamento(db) {
   })();
 }
 
+/** Fase 2, Onda 2: uma dívida em 12 parcelas (uma já paga e uma atrasada) e três assinaturas. */
+function semearDividasEAssinaturas(db) {
+  if (lerConfig(db, 'demo_dados_v5') === '1') return;
+  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
+  const contexto = { hoje, agora: new Date() };
+  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
+  const conta = listarContas(db).find((c) => c.nome === 'Conta corrente');
+  if (!conta) return;
+
+  db.transaction(() => {
+    const divida = criarDivida(
+      db,
+      {
+        nome: 'Empréstimo pessoal', credor: 'Banco de demonstração', valor_total_centavos: 360000, parcelas_total: 12,
+        primeiro_vencimento: somarDias(hoje, -45), conta_id: conta.id, categoria_id: categorias.get('Outras despesas') ?? null,
+        observacao: '',
+      },
+      contexto,
+    );
+    const primeira = divida.parcelas[0];
+    liquidarMovimentacao(db, primeira.lancamento_id, primeira.data_vencimento, contexto);
+
+    for (const [descricao, valor, frequencia, inicioEmDias] of [
+      ['Streaming de vídeo', 3990, 'mensal', 6],
+      ['Armazenamento em nuvem', 1290, 'mensal', 12],
+      ['Seguro do celular', 24000, 'anual', 40],
+    ]) {
+      criarRecorrencia(
+        db,
+        {
+          tipo: 'despesa', descricao, valor_centavos: valor, conta_id: conta.id,
+          categoria_id: categorias.get('Assinaturas e streaming') ?? null, frequencia,
+          data_inicio: somarDias(hoje, inicioEmDias), data_fim: null, ativa: true, assinatura: true, observacao: '',
+        },
+        contexto,
+      );
+    }
+    gravarConfig(db, 'demo_dados_v5', '1');
+  })();
+}
+
 /**
  * Prepara o banco de demonstração: senha e dados fictícios (contas, lançamentos, uma transferência
- * com tarifa, compromissos pendentes, um cartão, recorrências, orçamento e metas). Cada onda acrescenta os dados dos módulos que cria.
+ * com tarifa, compromissos pendentes, um cartão, recorrências, orçamento, metas, dívida e assinaturas).
+ * Cada onda acrescenta os dados dos módulos que cria.
  */
 export async function semearDemo(db) {
   if (lerConfig(db, 'demo_semeado') !== '1') {
@@ -179,6 +222,7 @@ export async function semearDemo(db) {
     semearCartoes(db);
     semearCompromissos(db);
     semearPlanejamento(db);
+    semearDividasEAssinaturas(db);
     return;
   }
 
@@ -241,4 +285,5 @@ export async function semearDemo(db) {
   semearCartoes(db);
   semearCompromissos(db);
   semearPlanejamento(db);
+  semearDividasEAssinaturas(db);
 }

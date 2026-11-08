@@ -73,7 +73,7 @@ export function Dashboard() {
     );
   }
 
-  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas } = resumo.data;
+  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas, dividas, assinaturas } = resumo.data;
   return (
     <section>
       <h1>Início</h1>
@@ -128,8 +128,8 @@ export function Dashboard() {
         </>
       )}
 
-      {(orcamento || metas) && <h2>Planejamento</h2>}
-      {(orcamento || metas) && (
+      {(orcamento || metas || dividas || assinaturas) && <h2>Planejamento</h2>}
+      {(orcamento || metas || dividas || assinaturas) && (
         <div className="totais-lista">
           {orcamento && (
             <div className="cartao">
@@ -148,6 +148,24 @@ export function Dashboard() {
               <p>Guardado <Valor centavos={metas.acumulado_centavos} tipo="entrada" /></p>
               <p>Alvo <Valor centavos={metas.alvo_centavos} /></p>
               <Link className="botao" to="/metas">Ver metas</Link>
+            </div>
+          )}
+          {dividas && (
+            <div className="cartao">
+              <h3>Dívidas</h3>
+              <p>{dividas.abertas} em aberto{dividas.atrasadas > 0 ? `, ${dividas.atrasadas} em atraso` : ''}</p>
+              <p>Falta pagar <Valor centavos={dividas.restante_centavos} tipo="saida" /></p>
+              {dividas.atrasado_centavos > 0 && <p>Em atraso <Valor centavos={dividas.atrasado_centavos} tipo="saida" /></p>}
+              <Link className="botao" to="/dividas">Ver dívidas</Link>
+            </div>
+          )}
+          {assinaturas && (
+            <div className="cartao">
+              <h3>Assinaturas</h3>
+              <p>{assinaturas.ativas} {assinaturas.ativas === 1 ? 'ativa' : 'ativas'}</p>
+              <p>Por mês <Valor centavos={assinaturas.mensal_centavos} tipo="saida" /></p>
+              <p>Por ano <Valor centavos={assinaturas.anual_centavos} tipo="saida" /></p>
+              <Link className="botao" to="/assinaturas">Ver assinaturas</Link>
             </div>
           )}
         </div>

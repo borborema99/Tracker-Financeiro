@@ -4,7 +4,7 @@ Sistema de controle financeiro pessoal que roda no seu computador e também abre
 
 ## O que faz
 
-Esta versão cobre a Fase 1 do escopo (`docs/escopo-completo.md`):
+Esta versão cobre as Fases 1 e 2 do escopo (`docs/escopo-completo.md`):
 
 - Contas bancárias e carteiras, com saldo calculado a partir das movimentações.
 - Receitas, despesas e transferências entre contas, com categorias, subcategorias, filtros, busca e histórico de alterações.

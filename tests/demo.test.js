@@ -52,14 +52,14 @@ test('demo: tem recorrências com ocorrências pendentes e uma conta atrasada, s
   const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
   const contar = (sql) => db.prepare(sql).get().n;
 
-  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 3);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 6, '3 recorrências comuns + 3 assinaturas');
   assert.ok(contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL') >= 9);
   const atrasados = listarCompromissos(db, { tipo: 'despesa', pagina: 1, por_pagina: 50 }, hoje).totais.atrasado_centavos;
-  assert.equal(atrasados, 12900);
+  assert.equal(atrasados, 12900 + 30000, 'a conta atrasada (12900) + a 2ª parcela da dívida (30000)');
 
   const ocorrencias = contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL');
   await semearDemo(db);
-  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 3);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias'), 6);
   assert.equal(contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE recorrencia_id IS NOT NULL'), ocorrencias);
   db.close();
 });
@@ -75,6 +75,21 @@ test('demo: a demonstração traz orçamento e metas, e rodar de novo não dupli
   await semearDemo(db);
   assert.equal(contar('orcamentos'), 4);
   assert.equal(contar('metas'), 2);
+  db.close();
+});
+
+test('demo: a demonstração traz uma dívida (com uma parcela paga e uma atrasada) e assinaturas, sem duplicar', async () => {
+  const db = abrirBanco(':memory:');
+  migrar(db);
+  await semearDemo(db);
+  const contar = (sql) => db.prepare(sql).get().n;
+  assert.equal(contar('SELECT COUNT(*) AS n FROM dividas'), 1);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM movimentacoes WHERE divida_id IS NOT NULL'), 12);
+  assert.equal(contar("SELECT COUNT(*) AS n FROM movimentacoes WHERE divida_id IS NOT NULL AND status = 'liquidada'"), 1);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias WHERE assinatura = 1'), 3);
+  await semearDemo(db);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM dividas'), 1);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM recorrencias WHERE assinatura = 1'), 3);
   db.close();
 });
 

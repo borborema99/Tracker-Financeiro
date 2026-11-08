@@ -126,7 +126,7 @@ a.botao, a.botao-primario {
 .medidor.atencao, .medidor.atrasada { accent-color: var(--aviso); }
 .medidor.estourado { accent-color: var(--saida); }
 .medidor.concluida { accent-color: var(--entrada); }
-.etiqueta.ok, .etiqueta.concluida { color: var(--entrada); border-color: var(--entrada); }
+.etiqueta.ok, .etiqueta.concluida, .etiqueta.em_dia { color: var(--entrada); border-color: var(--entrada); }
 .etiqueta.atencao { color: var(--aviso); border-color: var(--aviso); }
 .etiqueta.estourado { color: var(--saida); border-color: var(--saida); }
 .orcamento-item p { margin: 0.25rem 0; }
