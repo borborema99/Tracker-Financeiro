@@ -16,7 +16,7 @@ export function useInvalidarDados() {
         'cartoes', 'cartao', 'faturas', 'fatura', 'projecao', 'compras', 'compra',
         'compromissos', 'recorrencias', 'recorrencia', 'fluxo', 'projecao-saldo', 'calendario', 'alertas',
         'orcamento', 'metas', 'meta', 'dividas', 'divida', 'assinaturas',
-        'investimentos', 'investimento', 'patrimonio',
+        'investimentos', 'investimento', 'patrimonio', 'relatorios',
       ].map((k) =>
         cliente.invalidateQueries({ queryKey: [k] }),
       ),

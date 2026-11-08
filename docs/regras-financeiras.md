@@ -25,6 +25,9 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-19 | Aporte em investimento com conta debita a conta e resgate credita, sem virar despesa nem receita (como a transferência, RF-03). Resgate maior que o valor atual é recusado; investimento ou conta com operações não são excluídos. | Fase 3, Onda 1 | `tests/rf-19-investimento-conta.test.js` |
 | RF-20 | Valor atual = última avaliação + aportes − resgates depois dela; resultado = valor atual + resgatado − aportado. Sem avaliação o valor é o custo e não existe resultado nem rentabilidade; o total da carteira só soma o resultado dos avaliados. | Fase 3, Onda 1 | `tests/rf-20-investimento-valor.test.js` |
 | RF-21 | Patrimônio líquido = contas + investimentos − (faturas não pagas + parcelas futuras do cartão) − restante das dívidas. Parte de módulo que não existe fica fora; contas a pagar comuns não entram. | Fase 3, Onda 1 | `tests/rf-21-patrimonio.test.js` |
+| RF-22 | Evolução mensal: cada mês soma o realizado do próprio mês, na mesma base do resumo (cartão pela compra, estorno pela data dele; pendente, pagamento de fatura e transferência não entram). A média só conta a partir do primeiro mês com movimento. | Fase 3, Onda 2 | `tests/rf-22-relatorio-evolucao.test.js` |
+| RF-23 | Por categoria: subcategorias somam na principal, a soma dos itens é a despesa (ou receita) realizada do resumo, e o período anterior são os mesmos meses antes (meses cheios) ou o mesmo número de dias. Variação é null sem valor anterior. | Fase 3, Onda 2 | `tests/rf-23-relatorio-categorias.test.js` |
+| RF-24 | Maiores despesas: ranking das despesas realizadas (lançamentos liquidados e compras no cartão pelo valor total), da maior para a menor, limitado; as rotas exigem sessão e validam o período. | Fase 3, Onda 2 | `tests/rf-24-relatorio-api.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -93,6 +96,16 @@ Cálculo em `servidor/dominio/investimento.js` e `patrimonio.js` (puras). Decis�
 - **Valor e resultado (RF-20).** Nada disso é coluna. Rentabilidade = resultado ÷ aportado, em %, com duas casas. `encerrado` = teve operação e vale zero. Excluir exige investimento sem operações; para encerrar um com movimento, registra-se o resgate total.
 - **Patrimônio (RF-21).** Contas ativas (as arquivadas ficam de fora, como no saldo total do início) + investimentos − cartões − dívidas. Sem investimento, cartão ou dívida, o `/api/resumo` não traz o bloco `patrimonio` (repetiria o saldo total); `/api/patrimonio` sempre responde.
 - **Início (RF-10).** O bloco `investimentos` só vem com algum investimento que valha mais que zero.
+
+## Relatórios (Fase 3, Onda 2)
+
+Cálculo em `servidor/dominio/relatorio.js` (puro). Decisões em `docs/adr/009-relatorios.md`.
+
+- **Base única (RF-22, RF-23).** Relatórios só leem o realizado, com as mesmas consultas do resumo e do orçamento (`despesasRealizadasPorCategoria`, `movimentacoesDoPeriodo`, `movimentosDeCartaoDoPeriodo`). Não existe número de relatório que concorra com o do Início.
+- **Evolução (RF-22).** `/api/relatorios/evolucao?meses=N` (1 a 24, padrão 6; o mês atual é o último).
+- **Categorias (RF-23).** `/api/relatorios/categorias?de&ate&tipo` (despesa ou receita; sem datas, o mês atual). Receita usa só receita liquidada, com divisão. Categoria que só teve valor no período anterior aparece com valor zero.
+- **Maiores despesas (RF-24).** `/api/relatorios/maiores-despesas?de&ate&limite` (1 a 50, padrão 10).
+- **Período.** As duas datas juntas ou nenhuma, a final não antes da inicial, no máximo 2 anos (731 dias).
 
 ## RF-10 na Onda 0
 

@@ -15,6 +15,7 @@ const CAMINHOS = {
   dividas: 'M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.8 4.5 3.5 4.5 1.8 4.5 3.5-2 3-4.5 3-4.5-1.3-4.5-3',
   assinaturas: 'M5 6h14v12H5V6Zm0 4h14M8 14h3',
   investimentos: 'M4 20h16M6 20v-7M12 20V6M18 20v-10',
+  relatorios: 'M6 3h9l4 4v14H6V3Zm9 0v4h4M9 12h7M9 16h7',
   patrimonio: 'M3 9l9-5 9 5M5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 20h18',
   outros: 'M5 12h.01M12 12h.01M19 12h.01',
   olho: 'M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12ZM12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z',

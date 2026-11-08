@@ -12,7 +12,7 @@ function categoriasAtivas(db) {
 }
 
 /** Uma linha por categoria; lançamento dividido entre categorias vira uma linha por divisão. */
-function expandirDivisoes(db, lancamentos) {
+export function expandirDivisoes(db, lancamentos) {
   if (lancamentos.length === 0) return [];
   const marcas = lancamentos.map(() => '?').join(',');
   const partes = new Map();

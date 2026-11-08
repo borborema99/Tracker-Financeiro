@@ -51,6 +51,10 @@ Cálculo financeiro só em `servidor/dominio/` (funções puras: `saldo`, `resum
 
 `dominio/investimento.js` (valor atual, resultado, totais da carteira) e `patrimonio.js` são puros. `banco/repositorios/investimentos.js` grava investimento, operações (aporte e resgate, com conta opcional) e avaliações (valor informado numa data), sempre com `audit_log` na mesma transação. As operações com conta entram no saldo por `operacoesComoMovimentos`, no mesmo molde dos pagamentos de fatura. `repositorios/patrimonio.js` junta contas, carteira, cartões e dívidas e chama o domínio; `/api/resumo` e `/api/patrimonio` usam o mesmo cálculo.
 
+## Relatórios (Fase 3)
+
+`dominio/relatorio.js` é puro (meses, evolução, período anterior, valores por categoria, ranking). `banco/repositorios/relatorios.js` só lê: reaproveita as consultas do resumo e do orçamento para o realizado ficar idêntico, e `rotas/relatorios.js` valida o período com `contratos/relatorios.js`. Nada é gravado e não há tabela nova. A tela é carregada por rota (lazy) e não usa biblioteca de gráfico: barras são `progress`.
+
 ## Planejamento (Fase 2)
 
 `dominio/orcamento.js` (vigência do limite, gasto por categoria principal, situação) e `dominio/meta.js` (acumulado, situação, valor por mês) são puros. `banco/repositorios/orcamentos.js` lê as despesas realizadas e previstas por categoria (mesma base do resumo) e grava o limite com `audit_log`; `metas.js` grava metas e aportes e garante que o acumulado nunca fica negativo. Tabelas na migration `005_planejamento.sql`; gasto, restante, percentual e situação não são colunas. Rotas em `rotas/planejamento.js`; o orçamento alimenta alertas (`dominio/alertas.js`) e o `/api/resumo`, que só traz os blocos `orcamento` e `metas` quando existem.

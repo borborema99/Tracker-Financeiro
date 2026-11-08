@@ -4,7 +4,7 @@ Sistema de controle financeiro pessoal que roda no seu computador e também abre
 
 ## O que faz
 
-Esta versão cobre as Fases 1 e 2 do escopo (`docs/escopo-completo.md`):
+Esta versão cobre as Fases 1, 2 e 3 do escopo (`docs/escopo-completo.md`):
 
 - Contas bancárias e carteiras, com saldo calculado a partir das movimentações.
 - Receitas, despesas e transferências entre contas, com categorias, subcategorias, filtros, busca e histórico de alterações.
@@ -13,6 +13,8 @@ Esta versão cobre as Fases 1 e 2 do escopo (`docs/escopo-completo.md`):
 - Lançamentos recorrentes.
 - Orçamento mensal por categoria e metas com aportes.
 - Dívidas parceladas (parcelas viram contas a pagar) e assinaturas, com custo mensal e anual e pausa sem cobranças atrasadas ao reativar.
+- Investimentos (carteira manual: aportes, resgates e o valor que você informa, com resultado calculado) e patrimônio líquido (contas e investimentos menos cartões e dívidas).
+- Relatórios do que já foi liquidado: evolução mês a mês, despesas ou receitas por categoria comparadas com o período anterior e maiores despesas.
 - Fluxo de caixa, com projeção de 7 a 90 dias, e dashboard com os indicadores dos módulos que existem.
 - Alertas dentro do app (atraso, vencimento próximo, fatura fechando e saldo projetado negativo).
 - Exportação em CSV (lançamentos e compras no cartão, prontos para planilha) e cópia completa em JSON.
@@ -117,6 +119,6 @@ backups/     cópias do banco (fora do git)
 
 ## O que ainda não tem
 
-Relatórios, patrimônio líquido, investimentos, múltiplas moedas, importação de extratos, anexos e comprovantes e assistente com IA estão nas Fases 3 e 4 do escopo e não existem nesta versão. O menu só mostra o que funciona de verdade.
+Múltiplas moedas, importação de extratos, anexos e comprovantes, assistente com IA, integração bancária e cotação automática estão na Fase 4 do escopo e não existem nesta versão. O menu só mostra o que funciona de verdade.
 
-Também faltam, nas Fases 1 e 2: juros, amortização e quitação antecipada de dívidas, edição de valor ou prazo de uma dívida (hoje se exclui e cria de novo), assinatura no cartão de crédito, restaurar backup pela interface (hoje só pelo terminal), importar dados (o JSON exportado serve para guardar, não para reimportar), lembretes fora do app (e-mail ou push), parcelamento de conta a pagar e juros ou multa de atraso. Os gráficos do Fluxo de caixa ainda não foram conferidos num navegador sob a política de segurança; o roteiro está em `docs/teste-no-celular.md`.
+Também faltam, nas Fases 1 a 3: evolução do patrimônio mês a mês, gráficos nos relatórios, cotas, proventos e imposto nos investimentos, juros, amortização e quitação antecipada de dívidas, edição de valor ou prazo de uma dívida (hoje se exclui e cria de novo), assinatura no cartão de crédito, restaurar backup pela interface (hoje só pelo terminal), importar dados (o JSON exportado serve para guardar, não para reimportar), lembretes fora do app (e-mail ou push), parcelamento de conta a pagar e juros ou multa de atraso. Os gráficos do Fluxo de caixa ainda não foram conferidos num navegador sob a política de segurança; o roteiro está em `docs/teste-no-celular.md`.
