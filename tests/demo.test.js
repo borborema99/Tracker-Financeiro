@@ -109,3 +109,17 @@ test('demo: um banco de demonstração de antes dos cartões recebe só os cart�
   assert.equal(listarCartoes(db, hojeNoFuso(FUSO_PADRAO, new Date())).length, 1);
   db.close();
 });
+
+test('demo: a demonstração traz investimentos (um com valor informado, um sem), mexe no saldo só do que tem conta, sem duplicar', async () => {
+  const db = abrirBanco(':memory:');
+  migrar(db);
+  await semearDemo(db);
+  const contar = (sql) => db.prepare(sql).get().n;
+  assert.equal(contar('SELECT COUNT(*) AS n FROM investimentos'), 2);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM investimentos_operacoes'), 2);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM investimentos_avaliacoes'), 1);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM investimentos_operacoes WHERE conta_id IS NOT NULL'), 1);
+  await semearDemo(db);
+  assert.equal(contar('SELECT COUNT(*) AS n FROM investimentos'), 2);
+  db.close();
+});

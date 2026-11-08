@@ -3,6 +3,7 @@ import { movimentosDeCartaoDoPeriodo, resumoDosCartoes } from '../banco/reposito
 import { compromissosPendentes } from '../banco/repositorios/compromissos.js';
 import { listarContas } from '../banco/repositorios/contas.js';
 import { resumoDeAssinaturas } from '../banco/repositorios/assinaturas.js';
+import { calcularPatrimonioAtual } from '../banco/repositorios/patrimonio.js';
 import { resumoDeDividas } from '../banco/repositorios/dividas.js';
 import { resumoDeMetas } from '../banco/repositorios/metas.js';
 import { orcamentoSeExistir } from '../banco/repositorios/orcamentos.js';
@@ -37,6 +38,7 @@ export async function rotasResumo(app) {
     const metas = resumoDeMetas(db, hoje);
     const dividas = resumoDeDividas(db, hoje);
     const assinaturas = resumoDeAssinaturas(db);
+    const { carteira, patrimonio } = calcularPatrimonioAtual(db, hoje);
     return {
       mes: mesAlvo,
       periodo,
@@ -61,6 +63,12 @@ export async function rotasResumo(app) {
       ...(metas ? { metas } : {}),
       ...(dividas ? { dividas } : {}),
       ...(assinaturas ? { assinaturas } : {}),
+      // Fase 3 (RF-10): a carteira só vem com investimento em aberto; o patrimônio só quando há algo além das contas
+      // (senão repetiria o saldo total).
+      ...(carteira ? { investimentos: carteira } : {}),
+      ...(carteira || cartoes || dividas
+        ? { patrimonio: { patrimonio_liquido_centavos: patrimonio.patrimonio_liquido_centavos, ativos: patrimonio.ativos, passivos: patrimonio.passivos } }
+        : {}),
     };
   });
 }

@@ -12,6 +12,8 @@ export const ITENS_MENU = [
   { para: '/metas', rotulo: 'Metas', icone: 'metas' },
   { para: '/dividas', rotulo: 'Dívidas', icone: 'dividas' },
   { para: '/assinaturas', rotulo: 'Assinaturas', icone: 'assinaturas' },
+  { para: '/investimentos', rotulo: 'Investimentos', icone: 'investimentos' },
+  { para: '/patrimonio', rotulo: 'Patrimônio', icone: 'patrimonio' },
   { para: '/categorias', rotulo: 'Categorias', icone: 'categorias' },
   { para: '/alertas', rotulo: 'Alertas', icone: 'alertas' },
   { para: '/config', rotulo: 'Config.', icone: 'config' },

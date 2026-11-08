@@ -12,6 +12,7 @@ import {
 import { criarConta, listarContas } from '../banco/repositorios/contas.js';
 import { criarMeta, registrarAporte } from '../banco/repositorios/metas.js';
 import { criarDivida } from '../banco/repositorios/dividas.js';
+import { criarInvestimento, registrarAvaliacao, registrarOperacao } from '../banco/repositorios/investimentos.js';
 import { criarMovimentacao, liquidarMovimentacao } from '../banco/repositorios/movimentacoes.js';
 import { definirLimite } from '../banco/repositorios/orcamentos.js';
 import { criarRecorrencia } from '../banco/repositorios/recorrencias.js';
@@ -208,6 +209,39 @@ function semearDividasEAssinaturas(db) {
   })();
 }
 
+/** Fase 3, Onda 1: um investimento com aporte saindo da poupança e valor informado, e outro sem valor informado. */
+function semearInvestimentos(db) {
+  if (lerConfig(db, 'demo_dados_v6') === '1') return;
+  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
+  const contexto = { hoje, agora: new Date() };
+  const poupanca = listarContas(db).find((c) => c.nome === 'Poupança');
+  if (!poupanca) return;
+
+  db.transaction(() => {
+    const tesouro = criarInvestimento(
+      db,
+      { nome: 'Tesouro Selic', tipo: 'tesouro', instituicao: 'Corretora de demonstração', observacao: '' },
+      contexto,
+    );
+    registrarOperacao(
+      db,
+      tesouro.id,
+      { tipo: 'aporte', valor_centavos: 200000, data: somarDias(hoje, -60), conta_id: poupanca.id, observacao: '' },
+      contexto,
+    );
+    registrarAvaliacao(db, tesouro.id, { data: hoje, valor_centavos: 204300 }, contexto);
+
+    const fundo = criarInvestimento(db, { nome: 'Fundo de ações', tipo: 'fundo', instituicao: '', observacao: '' }, contexto);
+    registrarOperacao(
+      db,
+      fundo.id,
+      { tipo: 'aporte', valor_centavos: 50000, data: somarDias(hoje, -20), conta_id: null, observacao: '' },
+      contexto,
+    );
+    gravarConfig(db, 'demo_dados_v6', '1');
+  })();
+}
+
 /**
  * Prepara o banco de demonstração: senha e dados fictícios (contas, lançamentos, uma transferência
  * com tarifa, compromissos pendentes, um cartão, recorrências, orçamento, metas, dívida e assinaturas).
@@ -223,6 +257,7 @@ export async function semearDemo(db) {
     semearCompromissos(db);
     semearPlanejamento(db);
     semearDividasEAssinaturas(db);
+    semearInvestimentos(db);
     return;
   }
 
@@ -286,4 +321,5 @@ export async function semearDemo(db) {
   semearCompromissos(db);
   semearPlanejamento(db);
   semearDividasEAssinaturas(db);
+  semearInvestimentos(db);
 }

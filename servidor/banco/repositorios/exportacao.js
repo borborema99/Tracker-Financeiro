@@ -7,6 +7,7 @@ export const TABELAS_DA_COPIA = [
   'cartoes', 'faturas', 'compras_cartao', 'parcelas_cartao', 'estornos_cartao', 'pagamentos_fatura',
   'recorrencias', 'recorrencias_puladas',
   'orcamentos', 'metas', 'metas_aportes', 'dividas',
+  'investimentos', 'investimentos_operacoes', 'investimentos_avaliacoes',
 ];
 
 const nomes = (db, tabela) => new Map(db.prepare(`SELECT id, nome FROM ${tabela}`).all().map((l) => [l.id, l.nome]));

@@ -73,7 +73,7 @@ export function Dashboard() {
     );
   }
 
-  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas, dividas, assinaturas } = resumo.data;
+  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas, dividas, assinaturas, investimentos, patrimonio } = resumo.data;
   return (
     <section>
       <h1>Início</h1>
@@ -166,6 +166,30 @@ export function Dashboard() {
               <p>Por mês <Valor centavos={assinaturas.mensal_centavos} tipo="saida" /></p>
               <p>Por ano <Valor centavos={assinaturas.anual_centavos} tipo="saida" /></p>
               <Link className="botao" to="/assinaturas">Ver assinaturas</Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(investimentos || patrimonio) && <h2>Patrimônio</h2>}
+      {(investimentos || patrimonio) && (
+        <div className="totais-lista">
+          {patrimonio && (
+            <div className="cartao">
+              <h3>Patrimônio líquido</h3>
+              <p className="destaque"><Valor centavos={patrimonio.patrimonio_liquido_centavos} /></p>
+              <p className="suave pequeno">Contas e investimentos menos cartões e dívidas</p>
+              <Link className="botao" to="/patrimonio">Ver patrimônio</Link>
+            </div>
+          )}
+          {investimentos && (
+            <div className="cartao">
+              <h3>Investimentos</h3>
+              <p>Vale hoje <Valor centavos={investimentos.valor_atual_centavos} /></p>
+              {investimentos.resultado_centavos != null && (
+                <p>Resultado <Valor centavos={investimentos.resultado_centavos} tipo={investimentos.resultado_centavos >= 0 ? 'entrada' : 'saida'} /></p>
+              )}
+              <Link className="botao" to="/investimentos">Ver investimentos</Link>
             </div>
           )}
         </div>

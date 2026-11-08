@@ -22,6 +22,9 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-16 | A dívida herda o que já existe dos lançamentos: atraso, fluxo e projeção, orçamento e alertas. Excluir a dívida não deixa parcela pendente órfã. | Fase 2, Onda 2 | `tests/rf-16-divida-integracao.test.js` |
 | RF-17 | Custo da assinatura: anual = valor × cobranças por ano; equivalente mensal = anual ÷ 12 arredondado; só as ativas entram nos totais. | Fase 2, Onda 2 | `tests/rf-17-assinaturas.test.js` |
 | RF-18 | Assinatura pausada não gera cobranças. Reativar não recria as cobranças do período pausado (vale para toda recorrência). | Fase 2, Onda 2 | `tests/rf-18-assinatura-pausa.test.js`, `tests/dividas-assinaturas-api.test.js` |
+| RF-19 | Aporte em investimento com conta debita a conta e resgate credita, sem virar despesa nem receita (como a transferência, RF-03). Resgate maior que o valor atual é recusado; investimento ou conta com operações não são excluídos. | Fase 3, Onda 1 | `tests/rf-19-investimento-conta.test.js` |
+| RF-20 | Valor atual = última avaliação + aportes − resgates depois dela; resultado = valor atual + resgatado − aportado. Sem avaliação o valor é o custo e não existe resultado nem rentabilidade; o total da carteira só soma o resultado dos avaliados. | Fase 3, Onda 1 | `tests/rf-20-investimento-valor.test.js` |
+| RF-21 | Patrimônio líquido = contas + investimentos − (faturas não pagas + parcelas futuras do cartão) − restante das dívidas. Parte de módulo que não existe fica fora; contas a pagar comuns não entram. | Fase 3, Onda 1 | `tests/rf-21-patrimonio.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -81,6 +84,15 @@ Cálculo em `servidor/dominio/divida.js` e `assinatura.js` (puras). Decisões em
 - **Assinatura (RF-17).** Custo anual = valor × cobranças/ano (semanal 52, quinzenal 26, mensal 12, anual 1); equivalente mensal = anual ÷ 12 arredondado; totais somam só as ativas e derivam o mensal do anual total.
 - **Pausa (RF-18).** Pausada não gera cobranças. Ao reativar, as datas passadas sem lançamento viram puladas, para não aparecerem como atrasadas.
 - **Início (RF-10).** Os blocos `dividas` e `assinaturas` do `/api/resumo` só vêm com dívida em aberto ou assinatura ativa.
+
+## Investimentos e patrimônio (Fase 3, Onda 1)
+
+Cálculo em `servidor/dominio/investimento.js` e `patrimonio.js` (puras). Decisões em `docs/adr/008-investimentos-e-patrimonio.md`.
+
+- **Operações (RF-19).** Aporte e resgate podem ter conta. `saldo.js` os trata como `aporte_investimento` (debita) e `resgate_investimento` (credita), tipos que nunca entram em receita, despesa, orçamento nem fluxo de resultado. Sem conta, só o investimento muda. A data não pode ser futura nem anterior à última avaliação (que já inclui as operações até a data dela).
+- **Valor e resultado (RF-20).** Nada disso é coluna. Rentabilidade = resultado ÷ aportado, em %, com duas casas. `encerrado` = teve operação e vale zero. Excluir exige investimento sem operações; para encerrar um com movimento, registra-se o resgate total.
+- **Patrimônio (RF-21).** Contas ativas (as arquivadas ficam de fora, como no saldo total do início) + investimentos − cartões − dívidas. Sem investimento, cartão ou dívida, o `/api/resumo` não traz o bloco `patrimonio` (repetiria o saldo total); `/api/patrimonio` sempre responde.
+- **Início (RF-10).** O bloco `investimentos` só vem com algum investimento que valha mais que zero.
 
 ## RF-10 na Onda 0
 

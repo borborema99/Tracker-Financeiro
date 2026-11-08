@@ -116,8 +116,17 @@ test('restaurar: um backup de esquema antigo é aceito e o migrar o atualiza sem
   const velho = abrir(join(pasta, 'velho.db'));
   migrar(velho, antigo); // só as migrations 001 a 003
   semearPadroes(velho);
-  const conta = novaConta(velho, 'Corrente', 1234);
-  // Direto no SQL: o código atual já grava colunas que o esquema antigo não tem.
+  // Direto no SQL: o código atual já lê e grava tabelas e colunas que o esquema antigo não tem.
+  const conta = {
+    id: Number(
+      velho
+        .prepare(
+          `INSERT INTO contas (nome, tipo, saldo_inicial_centavos, criada_em, atualizada_em)
+           VALUES ('Corrente', 'corrente', 1234, 'a', 'a')`,
+        )
+        .run().lastInsertRowid,
+    ),
+  };
   velho
     .prepare(
       `INSERT INTO movimentacoes (tipo, descricao, valor_centavos, conta_id, data_competencia, data_liquidacao, status,
@@ -130,7 +139,7 @@ test('restaurar: um backup de esquema antigo é aceito e o migrar o atualiza sem
   await restaurarBanco({ origem: join(pasta, 'velho.db'), caminhoBanco: caminho, pastaBackups: join(pasta, 'backups') });
   const db = abrir(caminho);
   assert.equal(db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'recorrencias'").get(), undefined);
-  assert.deepEqual(migrar(db), ['004_compromissos.sql', '005_planejamento.sql', '006_dividas_assinaturas.sql']);
+  assert.deepEqual(migrar(db), ['004_compromissos.sql', '005_planejamento.sql', '006_dividas_assinaturas.sql', '007_investimentos.sql']);
   assert.deepEqual(saldos(db), [['Corrente', 1234 - 100]]);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM recorrencias').get().n, 0);
 });

@@ -19,6 +19,8 @@ import { Lancamentos } from '../movimentacoes/Lancamentos.jsx';
 import { Metas } from '../metas/Metas.jsx';
 import { Orcamento } from '../orcamento/Orcamento.jsx';
 import { Assinaturas } from '../assinaturas/Assinaturas.jsx';
+import { Investimentos } from '../investimentos/Investimentos.jsx';
+import { Patrimonio } from '../patrimonio/Patrimonio.jsx';
 import { DividaDetalhe, Dividas, FormularioDivida } from '../dividas/Dividas.jsx';
 import { Layout } from './Layout.jsx';
 import { Mais } from './Mais.jsx';
@@ -65,6 +67,8 @@ export function App() {
         <Route path="dividas/nova" element={<FormularioDivida fuso={sessao.fuso} />} />
         <Route path="dividas/:id" element={<DividaDetalhe />} />
         <Route path="assinaturas" element={<Assinaturas />} />
+        <Route path="investimentos" element={<Investimentos fuso={sessao.fuso} />} />
+        <Route path="patrimonio" element={<Patrimonio />} />
         <Route path="alertas" element={<Alertas />} />
         <Route path="mais" element={<Mais />} />
         <Route path="categorias" element={<Categorias />} />

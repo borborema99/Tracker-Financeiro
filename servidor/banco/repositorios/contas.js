@@ -2,6 +2,7 @@ import { conflito, invalido, naoEncontrado } from '../../erros.js';
 import { calcularSaldos } from '../../dominio/saldo.js';
 import { auditar } from '../auditoria.js';
 import { pagamentosComoMovimentos } from './cartoes.js';
+import { operacoesComoMovimentos } from './investimentos.js';
 
 const COLUNAS = 'id, nome, tipo, saldo_inicial_centavos, arquivada, criada_em, atualizada_em';
 
@@ -26,7 +27,7 @@ export function listarContas(db, { incluirArquivadas = true } = {}) {
          FROM movimentacoes WHERE excluida_em IS NULL AND status = 'liquidada'`,
     )
     .all();
-  const saldos = calcularSaldos(linhas, [...movs, ...pagamentosComoMovimentos(db)]);
+  const saldos = calcularSaldos(linhas, [...movs, ...pagamentosComoMovimentos(db), ...operacoesComoMovimentos(db)]);
   return linhas
     .filter((l) => incluirArquivadas || l.arquivada === 0)
     .map((l) => ({ ...paraApi(l), saldo_centavos: saldos[l.id] }));
@@ -88,6 +89,12 @@ export function excluirConta(db, id, { agora = new Date() } = {}) {
     .get(id, id);
   if (usadaNoCartao) {
     throw conflito('Esta conta tem pagamento de fatura ou é a conta de um cartão. Arquive a conta em vez de excluir.');
+  }
+  const usadaEmInvestimento = db
+    .prepare('SELECT 1 FROM investimentos_operacoes WHERE conta_id = ? AND excluida_em IS NULL')
+    .get(id);
+  if (usadaEmInvestimento) {
+    throw conflito('Esta conta tem aportes ou resgates de investimento. Arquive a conta em vez de excluir.');
   }
   db.transaction(() => {
     db.prepare('UPDATE contas SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(
