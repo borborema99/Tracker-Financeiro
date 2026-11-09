@@ -1,27 +1,33 @@
 import { gravarConfig, lerConfig } from './config-db.js';
 import { criarCategoria } from './repositorios/categorias.js';
 
-// PADRÕES A CONFIRMAR contra o escopo original (seções 2 e 3). Ver docs/adr/003-padroes-onda-1.md.
-// São só o ponto de partida: tudo é editável na tela. Para mudar o padrão de quem ainda não
-// instalou, edite esta lista; quem já semeou continua com o que tem (a semente roda uma vez).
+// Categorias e subcategorias padrão (seções 2 e 3 do escopo). São só o ponto de partida: tudo é
+// editável na tela. Quem instala agora recebe esta lista inteira; quem já tinha semeado recebe o que
+// faltava pela migration 010, que repete a lista em SQL (tests/padroes-migration.test.js confere as duas).
 export const CATEGORIAS_DESPESA = {
-  Moradia: ['Aluguel ou financiamento', 'Condomínio', 'Energia', 'Água', 'Internet', 'Manutenção'],
-  Alimentação: ['Mercado', 'Restaurantes', 'Delivery'],
-  Transporte: ['Combustível', 'Transporte público', 'Aplicativos', 'Manutenção do veículo'],
-  Saúde: ['Plano de saúde', 'Farmácia', 'Consultas e exames'],
-  Educação: ['Mensalidade', 'Cursos', 'Material'],
-  Lazer: ['Assinaturas e streaming', 'Viagens', 'Passeios'],
+  Moradia: ['Aluguel ou financiamento', 'Condomínio', 'Energia', 'Água', 'Gás', 'Internet', 'Manutenção', 'Móveis e eletrodomésticos'],
+  Alimentação: ['Mercado', 'Padaria e feira', 'Restaurantes', 'Delivery'],
+  Transporte: ['Combustível', 'Transporte público', 'Aplicativos', 'Manutenção do veículo', 'Estacionamento e pedágio', 'IPVA e licenciamento'],
+  Saúde: ['Plano de saúde', 'Farmácia', 'Consultas e exames', 'Dentista', 'Terapia'],
+  Educação: ['Mensalidade', 'Cursos', 'Material', 'Livros'],
+  Lazer: ['Assinaturas e streaming', 'Viagens', 'Passeios', 'Cinema e shows', 'Jogos e hobbies'],
   Vestuário: [],
-  'Cuidados pessoais': [],
-  'Impostos e taxas': [],
+  'Cuidados pessoais': ['Cabeleireiro e estética'],
+  'Família e filhos': ['Escola e creche', 'Mesada'],
+  'Animais de estimação': ['Ração e petshop', 'Veterinário'],
+  Seguros: ['Seguro de vida', 'Seguro residencial', 'Seguro do veículo'],
+  Doações: [],
+  'Dívidas e juros': [],
+  'Impostos e taxas': ['IPTU', 'Imposto de renda'],
   'Tarifas bancárias': [],
   'Outras despesas': [],
 };
 
 export const CATEGORIAS_RECEITA = {
-  Salário: [],
+  Salário: ['13º salário', 'Férias'],
   'Renda extra': ['Freelance', 'Vendas'],
-  Rendimentos: [],
+  Rendimentos: ['Juros e dividendos', 'Aluguéis recebidos'],
+  Benefícios: ['Vale-alimentação ou refeição'],
   Reembolsos: [],
   Presentes: [],
   'Outras receitas': [],

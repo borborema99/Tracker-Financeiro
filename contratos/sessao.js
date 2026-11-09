@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import './mensagens.js';
 
 export const SENHA_MINIMA = 8;
 

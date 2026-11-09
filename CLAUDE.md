@@ -8,12 +8,12 @@ Tracker Financeiro: controle financeiro pessoal local, uma instância = uma pess
 
 ## Onde ficam as coisas
 
-- Regras financeiras (RF-01 a RF-18): `docs/regras-financeiras.md`. Cada regra vira teste com o ID no nome (`RF-01 ...`).
+- Regras financeiras (RF-01 a RF-30): `docs/regras-financeiras.md`. Cada regra vira teste com o ID no nome (`RF-01 ...`).
 - Cálculo financeiro: só em `servidor/dominio/`, funções puras. A API devolve indicadores prontos; o front só formata. Nunca duplicar regra em tela.
 - Dinheiro: `contratos/dinheiro.js` (parse, format, parcelas). Compartilhado com o front, por isso fora de `servidor/dominio/` (ADR 001).
-- Contratos Zod: `contratos/`. O servidor é a autoridade.
+- Contratos Zod: `contratos/`. O servidor é a autoridade. Mensagens de validação em português, as mesmas no front e no servidor (`contratos/mensagens.js`).
 - Migrations: `servidor/banco/migrations/NNN_nome.sql`. Nunca editar uma já aplicada (o runner confere checksum).
-- Escopo: `docs/escopo-completo.md` (hoje provisório, ver ADR 002). Arquitetura: `docs/arquitetura.md`.
+- Escopo: `docs/escopo-completo.md` (34 seções, reconstruído; ADR 012). Status de cada item (feito, parcial, falta, fora por decisão): só em `docs/lacunas.md`. Arquitetura: `docs/arquitetura.md`.
 
 ## Decisões (não reabrir)
 
@@ -24,7 +24,7 @@ Tracker Financeiro: controle financeiro pessoal local, uma instância = uma pess
 - Segurança: scrypt, cookie HttpOnly + SameSite=Strict (Secure só em HTTPS), CSRF por token + Origin, limite de 5 erros/15 min, CSP sem `unsafe-inline` (nada de `style=""` nem `<style>` inline no front).
 - App funciona completo sem service worker; manifest e SW só em contexto seguro.
 - Menu só mostra módulo que funciona. Sem zero falso, dado fictício como real, botão sem efeito.
-- Fases 1 e 2 existem. Fases 3 e 4 não existem ainda: sem botão nem menu para elas.
+- As Fases 1 a 4 estão implementadas. O que falta está em `docs/lacunas.md`; o que é "fora por decisão" (multiusuário, 2FA, e-mail, push, LGPD de serviço, IA, integração bancária, cotação automática) não entra, sem botão nem menu.
 
 ## Modo de trabalho
 
@@ -32,6 +32,6 @@ Plano de até 8 linhas antes de cada onda. Grep antes de Read; edições pequena
 
 ## Fases seguintes
 
-Leia CLAUDE.md, docs/arquitetura.md, docs/regras-financeiras.md e a seção da Fase X em docs/escopo-completo.md. Implemente a Fase X mantendo as decisões, as regras financeiras e o modo de trabalho do projeto, em ondas de até 4 módulos. Ao fim de cada onda rode `npm run verify` com a suíte inteira, faça um relatório de até 10 linhas e pare até eu digitar "próximo". Cada módulo só entra no menu quando funcionar de verdade e vem com testes das regras financeiras que ele cria. Não mexa no que já existe além do necessário.
+Leia CLAUDE.md, docs/arquitetura.md, docs/regras-financeiras.md e os itens da onda em docs/lacunas.md (situação "falta" ou "parcial") com a seção correspondente de docs/escopo-completo.md. Implemente a onda mantendo as decisões, as regras financeiras e o modo de trabalho do projeto, em ondas de até 4 módulos. Ao fim de cada onda rode `npm run verify` com a suíte inteira, faça um relatório de até 10 linhas e pare até eu digitar "próximo". Cada módulo só entra no menu quando funcionar de verdade e vem com testes das regras financeiras que ele cria. Não mexa no que já existe além do necessário.
 
 Ao terminar uma fase, atualize a seção 'O que faz' e a seção 'O que ainda não tem' do README.md, mexendo só nessas duas.

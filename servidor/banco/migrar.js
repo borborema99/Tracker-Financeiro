@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PASTA = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
+const SEM_CHAVES = /^-- migrar: sem-chaves-estrangeiras\s*$/m;
 
 /**
  * Aplica as migrations SQL numeradas que ainda não rodaram.
@@ -31,14 +32,25 @@ export function migrar(db, pasta = PASTA) {
       }
       continue;
     }
-    db.transaction(() => {
-      db.exec(sql);
-      db.prepare('INSERT INTO schema_migrations (versao, checksum, aplicada_em) VALUES (?, ?, ?)').run(
-        arquivo,
-        checksum,
-        new Date().toISOString(),
-      );
-    })();
+    // Reconstruir tabela (ex.: mudar um CHECK) exige foreign_keys desligado, e o pragma não vale dentro de
+    // transação. A migration pede isso na primeira linha; as chaves são conferidas antes do commit.
+    const semChaves = SEM_CHAVES.test(sql);
+    if (semChaves) db.pragma('foreign_keys = OFF');
+    try {
+      db.transaction(() => {
+        db.exec(sql);
+        if (semChaves && db.pragma('foreign_key_check').length > 0) {
+          throw new Error(`A migration ${arquivo} deixou chaves estrangeiras inválidas.`);
+        }
+        db.prepare('INSERT INTO schema_migrations (versao, checksum, aplicada_em) VALUES (?, ?, ?)').run(
+          arquivo,
+          checksum,
+          new Date().toISOString(),
+        );
+      })();
+    } finally {
+      if (semChaves) db.pragma('foreign_keys = ON');
+    }
     novas.push(arquivo);
   }
   return novas;

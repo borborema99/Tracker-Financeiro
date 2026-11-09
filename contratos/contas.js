@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { centavos } from './comum.js';
 
-// Padrão a confirmar contra o escopo original (seção 4). Ver docs/adr/003-padroes-onda-1.md.
-export const TIPOS_CONTA = ['corrente', 'poupanca', 'carteira', 'investimento'];
+// Seção 4 do escopo. A lista também está no CHECK da tabela `contas` (migration 010).
+export const TIPOS_CONTA = ['corrente', 'poupanca', 'carteira', 'investimento', 'digital', 'beneficio', 'outro'];
 
 export const ROTULOS_TIPO_CONTA = {
   corrente: 'Conta corrente',
   poupanca: 'Poupança',
   carteira: 'Carteira (dinheiro)',
   investimento: 'Conta de investimento',
+  digital: 'Conta digital ou de pagamento',
+  beneficio: 'Vale-alimentação ou refeição',
+  outro: 'Outra',
 };
 
 export const esquemaConta = z.object({

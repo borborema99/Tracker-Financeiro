@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import './mensagens.js';
 
 export const TAMANHO_MAXIMO_ANEXO = 5 * 1024 * 1024;
 export const MAXIMO_DE_ANEXOS_POR_LANCAMENTO = 10;

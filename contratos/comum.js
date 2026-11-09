@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import './mensagens.js';
 
 const MAX = Number.MAX_SAFE_INTEGER;
 

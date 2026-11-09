@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import './mensagens.js';
 
 export const FUSO_PADRAO = 'America/Sao_Paulo';
 

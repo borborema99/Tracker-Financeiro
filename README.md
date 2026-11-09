@@ -4,10 +4,10 @@ Sistema de controle financeiro pessoal que roda no seu computador e também abre
 
 ## O que faz
 
-Esta versão cobre as Fases 1 a 4 do escopo (`docs/escopo-completo.md`), menos o que está listado em "O que ainda não tem":
+Esta versão implementa as Fases 1 a 4 do escopo (`docs/escopo-completo.md`), menos o que está em "O que ainda não tem". O status de cada item está em `docs/lacunas.md`.
 
-- Contas bancárias e carteiras, com saldo calculado a partir das movimentações.
-- Receitas, despesas e transferências entre contas, com categorias, subcategorias, filtros, busca e histórico de alterações.
+- Contas bancárias e carteiras (corrente, poupança, carteira, investimento, conta digital, vale-alimentação ou refeição e outra), com saldo calculado a partir das movimentações.
+- Receitas, despesas e transferências entre contas, com categorias e subcategorias padrão (editáveis), filtros, busca e histórico de alterações.
 - Cartões de crédito com faturas, compras parceladas, pagamento total ou parcial, estorno e limite disponível.
 - Contas a pagar e a receber, com baixa parcial, reagendamento e aviso de atraso.
 - Lançamentos recorrentes.
@@ -113,7 +113,8 @@ backups/     cópias do banco (fora do git)
 
 ## Documentação
 
-- `docs/escopo-completo.md`: funcionalidades e fases (provisório, ver `docs/adr/002-escopo-provisorio.md`).
+- `docs/escopo-completo.md`: escopo em 34 seções (reconstruído, ver `docs/adr/012-escopo-reconstruido.md`).
+- `docs/lacunas.md`: situação de cada item do escopo contra o código (feito, parcial, falta, fora por decisão).
 - `docs/arquitetura.md`: como o sistema é organizado.
 - `docs/regras-financeiras.md`: regras de cálculo e os testes que as cobrem.
 - `docs/acesso-celular.md`: Tailscale, mkcert e HTTPS.
@@ -122,8 +123,8 @@ backups/     cópias do banco (fora do git)
 
 ## O que ainda não tem
 
-Assistente com IA (leitura de comprovantes), integração bancária e cotação automática (de moeda e de investimento) estavam na Fase 4 e não existem: exigiriam enviar seus dados a um serviço externo ou credenciais de Open Finance, e o app guarda tudo só no seu computador (`docs/adr/010-anexos-e-importacao-ofx.md`). O menu só mostra o que funciona de verdade.
+Por decisão, nunca terá: mais de uma pessoa por instalação, autenticação em dois fatores, e-mail e notificação push, recursos de LGPD de serviço, assistente com IA (inclusive leitura de comprovantes), integração bancária e cotação automática (de moeda e de investimento). O app guarda tudo só no seu computador e não envia dados a serviço externo (`docs/adr/010-anexos-e-importacao-ofx.md`, `docs/adr/012-escopo-reconstruido.md`). O menu só mostra o que funciona de verdade.
 
 Nas moedas, faltam receitas e despesas em moeda estrangeira com categoria, orçamento e relatório, cartão em outra moeda, ganho ou perda cambial e moedas sem casas decimais, como o iene. Na importação, faltam CSV, PDF, extrato em outra moeda e reconhecer transferências entre suas contas. Nos comprovantes, faltam anexos em compras de cartão.
 
-Também faltam, nas Fases 1 a 3: evolução do patrimônio mês a mês, gráficos nos relatórios, cotas, proventos e imposto nos investimentos, juros, amortização e quitação antecipada de dívidas, edição de valor ou prazo de uma dívida (hoje se exclui e cria de novo), assinatura no cartão de crédito, restaurar backup pela interface (hoje só pelo terminal), importar dados (o JSON exportado serve para guardar, não para reimportar), lembretes fora do app (e-mail ou push), parcelamento de conta a pagar e juros ou multa de atraso. Os gráficos do Fluxo de caixa ainda não foram conferidos num navegador sob a política de segurança; o roteiro está em `docs/teste-no-celular.md`.
+Também faltam, nas Fases 1 a 3: etiquetas e edição em lote de lançamentos, ajuste de saldo por conferência com o extrato, cor ou ícone nas categorias, aviso de duplicidade em lançamento digitado à mão, evolução do patrimônio mês a mês, gráficos e relatório por conta nos relatórios, exportar relatório em PDF, cotas, proventos e imposto nos investimentos, juros, amortização e quitação antecipada de dívidas, edição de valor ou prazo de uma dívida (hoje se exclui e cria de novo), assinatura no cartão de crédito, copiar o orçamento do mês anterior e levar sobra ou estouro ao mês seguinte, alerta de meta atrasada, restaurar backup pela interface (hoje só pelo terminal), importar dados (o JSON exportado serve para guardar, não para reimportar), trocar a senha e escolher o tema pela interface, parcelamento de conta a pagar e juros ou multa de atraso. Os gráficos do Fluxo de caixa ainda não foram conferidos num navegador sob a política de segurança; o roteiro está em `docs/teste-no-celular.md`.
