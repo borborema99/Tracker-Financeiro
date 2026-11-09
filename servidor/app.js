@@ -20,6 +20,7 @@ import { rotasExportar } from './rotas/exportar.js';
 import { rotasPlanejamento } from './rotas/planejamento.js';
 import { rotasDividas } from './rotas/dividas.js';
 import { rotasInvestimentos } from './rotas/investimentos.js';
+import { rotasMoedas } from './rotas/moedas.js';
 import { rotasRelatorios } from './rotas/relatorios.js';
 import { rotasAnexos } from './rotas/anexos.js';
 import { rotasImportacao } from './rotas/importacao.js';
@@ -110,6 +111,7 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasPlanejamento);
   await app.register(rotasDividas);
   await app.register(rotasInvestimentos);
+  await app.register(rotasMoedas);
   await app.register(rotasRelatorios);
   await app.register(rotasAnexos);
   await app.register(rotasImportacao);

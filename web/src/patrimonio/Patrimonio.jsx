@@ -7,7 +7,7 @@ export function Patrimonio() {
   const consulta = useQuery({ queryKey: ['patrimonio'], queryFn: () => api('/patrimonio') });
   if (consulta.isPending) return <p className="carregando">Carregando…</p>;
   if (consulta.error) return <p className="erro">{consulta.error.message}</p>;
-  const { ativos, passivos, patrimonio_liquido_centavos: liquido, contas } = consulta.data;
+  const { ativos, passivos, patrimonio_liquido_centavos: liquido, contas, moedas_sem_cotacao: semCotacao } = consulta.data;
 
   return (
     <section>
@@ -28,8 +28,16 @@ export function Patrimonio() {
           {ativos.investimentos_centavos != null && (
             <p>Investimentos <Valor centavos={ativos.investimentos_centavos} /></p>
           )}
+          {ativos.moedas_centavos != null && <p>Moedas (pela cotação informada) <Valor centavos={ativos.moedas_centavos} /></p>}
           <p>Total <Valor centavos={ativos.total_centavos} tipo="entrada" /></p>
+          {semCotacao > 0 && (
+            <p className="suave pequeno">
+              {semCotacao} {semCotacao === 1 ? 'conta em moeda estrangeira está' : 'contas em moeda estrangeira estão'} sem cotação e
+              {semCotacao === 1 ? ' ficou' : ' ficaram'} fora do total.
+            </p>
+          )}
           {ativos.investimentos_centavos != null && <Link className="botao" to="/investimentos">Ver investimentos</Link>}
+          {(ativos.moedas_centavos != null || semCotacao > 0) && <Link className="botao" to="/moedas">Ver moedas</Link>}
         </div>
         <div className="cartao">
           <h3>O que você deve</h3>

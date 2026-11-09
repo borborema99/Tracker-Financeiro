@@ -105,3 +105,12 @@ Em HTTP por IP o navegador não instala o app; isso é esperado. Para testar, si
 - [ ] Importar extrato → escolha um `.ofx` baixado do seu banco: a prévia mostra data, descrição e valor, só as novas vêm marcadas.
 - [ ] Confirmar cria os lançamentos liquidados e o saldo da conta muda; importar o mesmo arquivo de novo mostra todas como "já importada" e não duplica nada.
 - [ ] Um extrato em outra moeda é recusado com mensagem clara.
+
+## 13. Moedas
+
+- [ ] Moedas → "Nova conta em moeda": crie "Viagem" em dólar; ela aparece com saldo US$ 0,00 e o aviso "Sem cotação".
+- [ ] Registrar operação → Compra de US$ 100 pagando R$ 540 de uma conta: o saldo da conta em reais cai R$ 540, o dólar mostra US$ 100,00 e o Início **não** mostra despesa nova.
+- [ ] Informe a cotação (por exemplo 5,50): a conta passa a mostrar o valor em reais (R$ 550,00) e o Início e o Patrimônio ganham a parte de moedas.
+- [ ] Venda maior que o saldo em dólar é recusada com mensagem clara.
+- [ ] Remover a cotação volta ao aviso "sem cotação" e o patrimônio avisa que a conta ficou de fora.
+- [ ] "Valores ocultos" esconde também o saldo em dólar.

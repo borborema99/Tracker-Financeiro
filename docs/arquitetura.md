@@ -55,6 +55,10 @@ Cálculo financeiro só em `servidor/dominio/` (funções puras: `saldo`, `resum
 
 `dominio/anexo.js` (tipo pelos bytes, nome seguro) e `dominio/ofx.js` (leitura do extrato) são puros. `rotas/anexos.js` e `rotas/importacao.js` registram um parser de corpo cru (Buffer) só para os tipos de arquivo, dentro do próprio plugin, com `bodyLimit` por rota; a sessão, o Origin e o CSRF valem como em qualquer escrita. `repositorios/anexos.js` grava o registro e o conteúdo na mesma transação com `audit_log`. `repositorios/importacao.js` faz a prévia (sem gravar) e a confirmação, que cria os lançamentos por `criarMovimentacao` (então auditoria, saldo e resumo seguem as regras de sempre) e guarda o FITID.
 
+## Múltiplas moedas (Fase 4)
+
+O BRL segue sendo a base: `movimentacoes`, resumo, orçamento, fluxo e relatórios não mudam. `dominio/moeda.js` (saldo na moeda, conversão em BigInt, cotação vigente, totais) é puro. `banco/repositorios/moedas.js` grava conta em moeda, operações (depósito, saque, compra, venda) e cotações, sempre com `audit_log` na mesma transação (migration `009_moedas.sql`). Compra e venda entram no saldo da conta em reais por `operacoesDeMoedaComoMovimentos`, no mesmo molde dos aportes. `repositorios/patrimonio.js` passa o total das moedas ao `calcularPatrimonio`, que só soma as contas com cotação. `rotas/moedas.js` expõe `/api/moedas`; o `/api/resumo` traz o bloco `moedas` só com saldo. A tela é carregada por rota (lazy).
+
 ## Relatórios (Fase 3)
 
 `dominio/relatorio.js` é puro (meses, evolução, período anterior, valores por categoria, ranking). `banco/repositorios/relatorios.js` só lê: reaproveita as consultas do resumo e do orçamento para o realizado ficar idêntico, e `rotas/relatorios.js` valida o período com `contratos/relatorios.js`. Nada é gravado e não há tabela nova. A tela é carregada por rota (lazy) e não usa biblioteca de gráfico: barras são `progress`.

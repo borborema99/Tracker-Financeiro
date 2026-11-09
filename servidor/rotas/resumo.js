@@ -38,7 +38,7 @@ export async function rotasResumo(app) {
     const metas = resumoDeMetas(db, hoje);
     const dividas = resumoDeDividas(db, hoje);
     const assinaturas = resumoDeAssinaturas(db);
-    const { carteira, patrimonio } = calcularPatrimonioAtual(db, hoje);
+    const { carteira, moedas, patrimonio } = calcularPatrimonioAtual(db, hoje);
     return {
       mes: mesAlvo,
       periodo,
@@ -66,9 +66,11 @@ export async function rotasResumo(app) {
       // Fase 3 (RF-10): a carteira só vem com investimento em aberto; o patrimônio só quando há algo além das contas
       // (senão repetiria o saldo total).
       ...(carteira ? { investimentos: carteira } : {}),
-      ...(carteira || cartoes || dividas
+      ...(carteira || cartoes || dividas || moedas
         ? { patrimonio: { patrimonio_liquido_centavos: patrimonio.patrimonio_liquido_centavos, ativos: patrimonio.ativos, passivos: patrimonio.passivos } }
         : {}),
+      // Fase 4 (RF-10): contas em moeda estrangeira só aparecem com saldo; nunca somadas ao saldo em reais.
+      ...(moedas ? { moedas } : {}),
     };
   });
 }

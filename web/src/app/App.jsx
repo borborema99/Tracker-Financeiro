@@ -28,6 +28,7 @@ import { Mais } from './Mais.jsx';
 // Recharts só é baixado quando se abre uma tela com gráfico.
 const Fluxo = lazy(() => import('../fluxo/Fluxo.jsx').then((m) => ({ default: m.Fluxo })));
 const Relatorios = lazy(() => import('../relatorios/Relatorios.jsx').then((m) => ({ default: m.Relatorios })));
+const Moedas = lazy(() => import('../moedas/Moedas.jsx').then((m) => ({ default: m.Moedas })));
 const Anexos = lazy(() => import('../movimentacoes/Anexos.jsx').then((m) => ({ default: m.Anexos })));
 const ImportarOfx = lazy(() => import('../importacao/ImportarOfx.jsx').then((m) => ({ default: m.ImportarOfx })));
 
@@ -92,6 +93,14 @@ export function App() {
           element={
             <Suspense fallback={<p className="carregando">Carregando…</p>}>
               <Relatorios fuso={sessao.fuso} />
+            </Suspense>
+          }
+        />
+        <Route
+          path="moedas"
+          element={
+            <Suspense fallback={<p className="carregando">Carregando…</p>}>
+              <Moedas fuso={sessao.fuso} />
             </Suspense>
           }
         />

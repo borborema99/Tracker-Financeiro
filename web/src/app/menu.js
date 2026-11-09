@@ -13,6 +13,7 @@ export const ITENS_MENU = [
   { para: '/dividas', rotulo: 'Dívidas', icone: 'dividas' },
   { para: '/assinaturas', rotulo: 'Assinaturas', icone: 'assinaturas' },
   { para: '/investimentos', rotulo: 'Investimentos', icone: 'investimentos' },
+  { para: '/moedas', rotulo: 'Moedas', icone: 'moedas' },
   { para: '/patrimonio', rotulo: 'Patrimônio', icone: 'patrimonio' },
   { para: '/relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
   { para: '/importar', rotulo: 'Importar extrato', icone: 'importar' },

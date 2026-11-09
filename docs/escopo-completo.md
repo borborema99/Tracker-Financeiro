@@ -22,5 +22,5 @@ Ver `docs/regras-financeiras.md` (RF-01 a RF-10).
 ## Fora das Fases 1 e 2
 
 - **Fase 3 (divisão provisória, ADR 006, 008 e 009):** implementada. Onda 1: investimentos e patrimônio líquido. Onda 2: relatórios.
-- **Fase 4 (divisão provisória, ADR 006 e 010):** Onda 1 pronta: anexos e comprovantes, importação OFX. Onda 2 (a fazer): múltiplas moedas. Fora, por não poderem ser entregues de verdade com os dados só no computador: IA e leitura de comprovantes, integração bancária e cotação automática (ver ADR 010).
+- **Fase 4 (divisão provisória, ADR 006, 010 e 011):** implementada. Onda 1: anexos e comprovantes, importação OFX. Onda 2: múltiplas moedas (contas em moeda estrangeira, cotação informada à mão). Fora, por não poderem ser entregues de verdade com os dados só no computador: IA e leitura de comprovantes, integração bancária e cotação automática (ver ADR 010).
 - **Sem fase definida:** notificações push e por e-mail.

@@ -73,7 +73,7 @@ export function Dashboard() {
     );
   }
 
-  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas, dividas, assinaturas, investimentos, patrimonio } = resumo.data;
+  const { saldos, realizado, previsto, mes, cartoes, compromissos, orcamento, metas, dividas, assinaturas, investimentos, moedas, patrimonio } = resumo.data;
   return (
     <section>
       <h1>Início</h1>
@@ -171,14 +171,14 @@ export function Dashboard() {
         </div>
       )}
 
-      {(investimentos || patrimonio) && <h2>Patrimônio</h2>}
-      {(investimentos || patrimonio) && (
+      {(investimentos || moedas || patrimonio) && <h2>Patrimônio</h2>}
+      {(investimentos || moedas || patrimonio) && (
         <div className="totais-lista">
           {patrimonio && (
             <div className="cartao">
               <h3>Patrimônio líquido</h3>
               <p className="destaque"><Valor centavos={patrimonio.patrimonio_liquido_centavos} /></p>
-              <p className="suave pequeno">Contas e investimentos menos cartões e dívidas</p>
+              <p className="suave pequeno">Contas, investimentos e moedas menos cartões e dívidas</p>
               <Link className="botao" to="/patrimonio">Ver patrimônio</Link>
             </div>
           )}
@@ -190,6 +190,18 @@ export function Dashboard() {
                 <p>Resultado <Valor centavos={investimentos.resultado_centavos} tipo={investimentos.resultado_centavos >= 0 ? 'entrada' : 'saida'} /></p>
               )}
               <Link className="botao" to="/investimentos">Ver investimentos</Link>
+            </div>
+          )}
+          {moedas && (
+            <div className="cartao">
+              <h3>Moedas</h3>
+              {moedas.com_cotacao > 0 && <p>Em reais <Valor centavos={moedas.valor_brl_centavos} /></p>}
+              {moedas.sem_cotacao > 0 && (
+                <p className="suave pequeno">
+                  {moedas.sem_cotacao} {moedas.sem_cotacao === 1 ? 'conta sem cotação' : 'contas sem cotação'}: informe a cotação para ver em reais.
+                </p>
+              )}
+              <Link className="botao" to="/moedas">Ver moedas</Link>
             </div>
           )}
         </div>

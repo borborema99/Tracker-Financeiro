@@ -15,6 +15,9 @@ export function efeitoNaConta(mov, contaId) {
     return mov.conta_id === contaId ? -v : 0;
   }
   if (mov.tipo === 'resgate_investimento') return mov.conta_id === contaId ? v : 0;
+  // Comprar moeda estrangeira debita a conta em reais e vender credita, sem ser despesa nem receita (RF-29).
+  if (mov.tipo === 'compra_moeda') return mov.conta_id === contaId ? -v : 0;
+  if (mov.tipo === 'venda_moeda') return mov.conta_id === contaId ? v : 0;
   if (mov.tipo === 'transferencia') {
     return (mov.conta_id === contaId ? -v : 0) + (mov.conta_destino_id === contaId ? v : 0);
   }

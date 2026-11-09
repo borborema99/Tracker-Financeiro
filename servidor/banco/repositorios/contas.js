@@ -3,6 +3,7 @@ import { calcularSaldos } from '../../dominio/saldo.js';
 import { auditar } from '../auditoria.js';
 import { pagamentosComoMovimentos } from './cartoes.js';
 import { operacoesComoMovimentos } from './investimentos.js';
+import { operacoesDeMoedaComoMovimentos } from './moedas.js';
 
 const COLUNAS = 'id, nome, tipo, saldo_inicial_centavos, arquivada, criada_em, atualizada_em';
 
@@ -27,7 +28,7 @@ export function listarContas(db, { incluirArquivadas = true } = {}) {
          FROM movimentacoes WHERE excluida_em IS NULL AND status = 'liquidada'`,
     )
     .all();
-  const saldos = calcularSaldos(linhas, [...movs, ...pagamentosComoMovimentos(db), ...operacoesComoMovimentos(db)]);
+  const saldos = calcularSaldos(linhas, [...movs, ...pagamentosComoMovimentos(db), ...operacoesComoMovimentos(db), ...operacoesDeMoedaComoMovimentos(db)]);
   return linhas
     .filter((l) => incluirArquivadas || l.arquivada === 0)
     .map((l) => ({ ...paraApi(l), saldo_centavos: saldos[l.id] }));
@@ -95,6 +96,10 @@ export function excluirConta(db, id, { agora = new Date() } = {}) {
     .get(id);
   if (usadaEmInvestimento) {
     throw conflito('Esta conta tem aportes ou resgates de investimento. Arquive a conta em vez de excluir.');
+  }
+  const usadaEmMoeda = db.prepare('SELECT 1 FROM moeda_operacoes WHERE conta_id = ? AND excluida_em IS NULL').get(id);
+  if (usadaEmMoeda) {
+    throw conflito('Esta conta tem compras ou vendas de moeda estrangeira. Arquive a conta em vez de excluir.');
   }
   db.transaction(() => {
     db.prepare('UPDATE contas SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(

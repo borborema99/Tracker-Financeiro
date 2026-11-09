@@ -31,6 +31,9 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-25 | Anexo (comprovante) só em lançamento existente; o tipo vem dos bytes (PDF, PNG, JPG, WEBP), com limite de tamanho e de quantidade, sem repetir o mesmo arquivo. Remover apaga o conteúdo e deixa o registro no audit_log; lançamento excluído esconde os anexos; o backup leva o conteúdo e o JSON não. | Fase 4, Onda 1 | `tests/rf-25-anexos.test.js` |
 | RF-26 | Leitura de OFX 1.x e 2.x: valor em centavos inteiros e com sinal (positivo é receita, negativo é despesa), data só AAAAMMDD, FITID repetido e linha ilegível vão para a lista de inválidas, e só extrato em BRL é aceito. | Fase 4, Onda 1 | `tests/rf-26-ofx.test.js` |
 | RF-27 | Importar extrato cria lançamentos liquidados que entram no saldo e no realizado uma única vez: o mesmo FITID nunca entra duas vezes (RF-09 só avisa, não bloqueia), o lote é tudo ou nada e quem exclui o lançamento pode importar de novo. | Fase 4, Onda 1 | `tests/rf-27-importacao-ofx.test.js` |
+| RF-28 | Conta em moeda estrangeira: o saldo é calculado na própria moeda (saldo inicial + depósitos e compras − saques e vendas), nunca fica negativo, e moedas diferentes nunca são somadas entre si. A conversão usa inteiros e arredonda para o centavo mais próximo. | Fase 4, Onda 2 | `tests/rf-28-moeda-saldo.test.js` |
+| RF-29 | Comprar moeda debita a conta em reais e vender credita, pelo valor em reais que a pessoa informou; não é despesa nem receita e não entra no realizado. Conta em reais com compra ou venda só arquiva. | Fase 4, Onda 2 | `tests/rf-29-moeda-compra-venda.test.js` |
+| RF-30 | A cotação é informada à mão (uma por moeda e data, nunca futura); vale a mais recente até hoje. Sem cotação o valor em reais é nulo, não zero: a conta fica fora do patrimônio, com aviso. | Fase 4, Onda 2 | `tests/rf-30-moeda-cotacao-patrimonio.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -116,7 +119,17 @@ Cálculo em `servidor/dominio/anexo.js` e `ofx.js` (puras). Decisões em `docs/a
 
 - **Anexos (RF-25).** Corpo cru na requisição (sem dependência nova), nome no cabeçalho `x-nome-arquivo`. Limites: 5 MB por arquivo e 10 por lançamento. Imagem abre na tela; PDF baixa. O conteúdo fica no SQLite (`anexos_arquivos`), por isso o backup e a restauração o levam sem pasta à parte.
 - **OFX (RF-26).** Codificação pelo cabeçalho do arquivo (`CHARSET:1252`) ou, sem ele, UTF-8 com queda para Windows-1252. Sem FITID, a chave é derivada de data, valor, descrição e da ordem entre idênticas.
-- **Importação (RF-27).** Duas etapas: a prévia marca cada transação (`nova`, `ja_importada`, `possivel_duplicidade`) sem gravar; a confirmação revalida no servidor. Cada lançamento importado fica ligado ao FITID em `importacoes_ofx` (único por conta).
+- **Importação (RF-27).** Duas etapas: a prévia marca cada transação (`nova`, `ja_importada`, `possivel_duplicidade`) sem gravar; a confirmação revalida no servidor. Cada lançamento importado fica ligado ao FITID em `importacoes_ofx` (único por conta). Só BRL, mesmo com moedas (ADR 011).
+
+## Múltiplas moedas (Fase 4, Onda 2)
+
+Cálculo em `servidor/dominio/moeda.js` (puro). Decisões em `docs/adr/011-multiplas-moedas.md`.
+
+- **Base em reais (RF-28).** Lançamentos, resumo, orçamento, fluxo e relatórios seguem só em BRL, sem nenhuma mudança. Dinheiro em outra moeda vive em `contas_moeda`, com saldo na própria moeda; o saldo em reais das contas nunca soma moeda estrangeira. Moedas aceitas: USD, EUR, GBP, CAD, AUD, CHF, ARS, UYU e MXN (2 casas decimais).
+- **Conversão (RF-28).** `converterParaBrl(valor, taxa)` multiplica em BigInt e arredonda para o mais próximo (metade se afasta do zero). A taxa é "reais por 1 unidade" em milionésimos (5,4321 vira 5432100), com teto de R$ 1.000 por unidade.
+- **Compra e venda (RF-29).** Exigem conta em reais e o valor em reais efetivamente pago ou recebido; a cotação embutida (`taxaImplicita`) é só informação. Depósito e saque não tocam em conta em reais. Saque e venda maiores que o saldo, e remover o que deixaria o saldo negativo, são recusados.
+- **Cotação (RF-30).** Informada à mão, nunca no futuro. Sem cotação a conta fica sem valor em reais e fora do patrimônio, com aviso (nada de zero falso). O Início e o patrimônio só trazem a parte de moedas quando há saldo.
+- **Fora desta onda.** Receita e despesa em moeda estrangeira com categoria, orçamento ou relatório; transferência entre conta em reais e em moeda (é compra ou venda); cartão em moeda; cotação automática.
 
 ## RF-10 na Onda 0
 
