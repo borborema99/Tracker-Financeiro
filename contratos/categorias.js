@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idPositivo } from './comum.js';
 
-export const TIPOS_CATEGORIA = ['despesa', 'receita'];
+export const TIPOS_CATEGORIA = /** @type {const} */ (['despesa', 'receita']);
 
 export const esquemaCategoria = z.object({
   nome: z.string().trim().min(1, 'Informe o nome.').max(60, 'Nome longo demais (máx. 60).'),

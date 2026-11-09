@@ -7,3 +7,4 @@ backups/
 *.db-wal
 *.db-shm
 *.log
+frontend/dist/

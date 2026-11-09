@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { centavos } from './comum.js';
 
 // Seção 4 do escopo. A lista também está no CHECK da tabela `contas` (migration 010).
-export const TIPOS_CONTA = ['corrente', 'poupanca', 'carteira', 'investimento', 'digital', 'beneficio', 'outro'];
+export const TIPOS_CONTA = /** @type {const} */ (['corrente', 'poupanca', 'carteira', 'investimento', 'digital', 'beneficio', 'outro']);
 
 export const ROTULOS_TIPO_CONTA = {
   corrente: 'Conta corrente',

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { centavosPositivos, dataIso, idPositivo } from './comum.js';
 
-export const FREQUENCIAS = ['semanal', 'quinzenal', 'mensal', 'anual'];
+export const FREQUENCIAS = /** @type {const} */ (['semanal', 'quinzenal', 'mensal', 'anual']);
 export const ROTULOS_FREQUENCIA = {
   semanal: 'Toda semana',
   quinzenal: 'A cada 15 dias',

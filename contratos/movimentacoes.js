@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { centavosPositivos, dataIso, idPositivo } from './comum.js';
 
-export const TIPOS_MOVIMENTACAO = ['receita', 'despesa', 'transferencia'];
-export const STATUS_MOVIMENTACAO = ['pendente', 'liquidada'];
+export const TIPOS_MOVIMENTACAO = /** @type {const} */ (['receita', 'despesa', 'transferencia']);
+export const STATUS_MOVIMENTACAO = /** @type {const} */ (['pendente', 'liquidada']);
 
 export const ROTULOS_TIPO = { receita: 'Receita', despesa: 'Despesa', transferencia: 'Transferência' };
 export const ROTULOS_STATUS = { pendente: 'Pendente', liquidada: 'Liquidada' };
@@ -32,8 +32,8 @@ export const esquemaMovimentacao = z.object({
 
 export const esquemaLiquidar = z.object({ data_liquidacao: dataIso.nullable().optional() });
 
-export const CAMPOS_ORDENACAO = ['data', 'valor', 'descricao', 'criada'];
-export const CAMPOS_DATA = ['competencia', 'vencimento', 'liquidacao'];
+export const CAMPOS_ORDENACAO = /** @type {const} */ (['data', 'valor', 'descricao', 'criada']);
+export const CAMPOS_DATA = /** @type {const} */ (['competencia', 'vencimento', 'liquidacao']);
 
 const inteiroDaUrl = z.coerce.number().int();
 

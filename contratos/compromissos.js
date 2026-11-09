@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { centavosPositivos, dataIso } from './comum.js';
 
-export const SITUACOES_COMPROMISSO = ['atrasada', 'a_vencer'];
+export const SITUACOES_COMPROMISSO = /** @type {const} */ (['atrasada', 'a_vencer']);
 export const ROTULOS_SITUACAO = {
   atrasada: 'Atrasada',
   vence_hoje: 'Vence hoje',

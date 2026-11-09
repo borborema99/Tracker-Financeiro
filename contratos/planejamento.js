@@ -20,7 +20,7 @@ export const esquemaMeta = z.object({
   observacao: z.string().trim().max(1000, 'Observação longa demais (máx. 1000).').default(''),
 });
 
-export const TIPOS_DE_APORTE = ['aporte', 'resgate'];
+export const TIPOS_DE_APORTE = /** @type {const} */ (['aporte', 'resgate']);
 
 export const esquemaAporte = z.object({
   tipo: z.enum(TIPOS_DE_APORTE, 'Escolha aporte ou resgate.'),

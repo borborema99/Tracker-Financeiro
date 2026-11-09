@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { dataIso } from './comum.js';
 
-export const AGRUPAMENTOS = ['dia', 'semana', 'mes', 'ano'];
+export const AGRUPAMENTOS = /** @type {const} */ (['dia', 'semana', 'mes', 'ano']);
 export const ROTULOS_AGRUPAMENTO = { dia: 'Diário', semana: 'Semanal', mes: 'Mensal', ano: 'Anual' };
-export const HORIZONTES = [7, 15, 30, 60, 90];
+export const HORIZONTES = /** @type {const} */ ([7, 15, 30, 60, 90]);
 
 export const esquemaFluxo = z
   .object({

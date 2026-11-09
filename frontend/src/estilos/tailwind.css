@@ -1,0 +1,106 @@
+/* Único arquivo CSS do front: entrada do Tailwind e tokens do tema (docs/design.md).
+   Nada de .css por componente nem .module.css; estilo mora nas classes do Tailwind.
+   Paleta provisória "papel e tinta", herdada do front antigo; a identidade final entra na Onda 2.
+   tests/design-contraste-tailwind.test.js lê este arquivo e exige contraste AA nos pares de texto. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+:root {
+  --background: #f3efe6;
+  --foreground: #1c2320;
+  --card: #fbf9f4;
+  --card-foreground: #1c2320;
+  --popover: #fbf9f4;
+  --popover-foreground: #1c2320;
+  --primary: #2f4a73;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe6da;
+  --secondary-foreground: #1c2320;
+  --muted: #ebe6da;
+  --muted-foreground: #55605a;
+  --accent: #ebe6da;
+  --accent-foreground: #1c2320;
+  --destructive: #a3262a;
+  --destructive-foreground: #ffffff;
+  --border: #cfc8b8;
+  --input: #cfc8b8;
+  --ring: #2f4a73;
+  /* Cor com significado: entrada (verde), saída (vermelho), aviso (âmbar). */
+  --entrada: #17673a;
+  --saida: #a3262a;
+  --aviso: #8a5a00;
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #121517;
+  --foreground: #ebe8e1;
+  --card: #1a1e21;
+  --card-foreground: #ebe8e1;
+  --popover: #1a1e21;
+  --popover-foreground: #ebe8e1;
+  --primary: #a9bfe8;
+  --primary-foreground: #101419;
+  --secondary: #23282c;
+  --secondary-foreground: #ebe8e1;
+  --muted: #23282c;
+  --muted-foreground: #a5aca7;
+  --accent: #23282c;
+  --accent-foreground: #ebe8e1;
+  --destructive: #ff9a94;
+  --destructive-foreground: #101419;
+  --border: #3a4146;
+  --input: #3a4146;
+  --ring: #a9bfe8;
+  --entrada: #6fd49b;
+  --saida: #ff9a94;
+  --aviso: #e6b45a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-entrada: var(--entrada);
+  --color-saida: var(--saida);
+  --color-aviso: var(--aviso);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* Sem fontes externas (CSP font-src 'self', privacidade e uso offline): pilhas do sistema. */
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --spacing-toque: 2.75rem; /* alvo de toque de 44px */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  /* Valores monetários alinham em coluna. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -73,9 +73,9 @@ export const esquemaContaMoeda = z.object({
 /** Depois de criada, a moeda e o saldo inicial não mudam (o saldo se ajusta com depósito e saque). */
 export const esquemaEdicaoContaMoeda = z.object({ nome, observacao });
 
-export const TIPOS_DE_OPERACAO_MOEDA = ['deposito', 'saque', 'compra', 'venda'];
+export const TIPOS_DE_OPERACAO_MOEDA = /** @type {const} */ (['deposito', 'saque', 'compra', 'venda']);
 export const ROTULOS_DE_OPERACAO_MOEDA = { deposito: 'Depósito', saque: 'Saque', compra: 'Compra', venda: 'Venda' };
-export const OPERACOES_COM_CONTA = ['compra', 'venda'];
+export const OPERACOES_COM_CONTA = /** @type {const} */ (['compra', 'venda']);
 
 /**
  * Compra e venda trocam moeda por reais de uma conta (valor em reais e conta obrigatórios); depósito e saque só

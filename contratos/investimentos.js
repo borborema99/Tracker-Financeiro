@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { centavosPositivos, dataIso } from './comum.js';
 
-export const TIPOS_DE_INVESTIMENTO = ['renda_fixa', 'tesouro', 'acoes', 'fii', 'fundo', 'cripto', 'previdencia', 'outro'];
+export const TIPOS_DE_INVESTIMENTO = /** @type {const} */ (['renda_fixa', 'tesouro', 'acoes', 'fii', 'fundo', 'cripto', 'previdencia', 'outro']);
 
 export const ROTULOS_DE_INVESTIMENTO = {
   renda_fixa: 'Renda fixa',
@@ -21,7 +21,7 @@ export const esquemaInvestimento = z.object({
   observacao: z.string().trim().max(1000, 'Observação longa demais (máx. 1000).').default(''),
 });
 
-export const TIPOS_DE_OPERACAO = ['aporte', 'resgate'];
+export const TIPOS_DE_OPERACAO = /** @type {const} */ (['aporte', 'resgate']);
 
 /** `conta_id` é opcional: com ele o dinheiro sai (aporte) ou volta (resgate) da conta; sem ele, só o investimento muda. */
 export const esquemaOperacaoInvestimento = z.object({
