@@ -8,6 +8,8 @@ export const TABELAS_DA_COPIA = [
   'recorrencias', 'recorrencias_puladas',
   'orcamentos', 'metas', 'metas_aportes', 'dividas',
   'investimentos', 'investimentos_operacoes', 'investimentos_avaliacoes',
+  // Só o registro dos anexos (nome, tipo, tamanho). O conteúdo (`anexos_arquivos`) fica de fora do JSON; o backup leva.
+  'anexos', 'importacoes_ofx',
 ];
 
 const nomes = (db, tabela) => new Map(db.prepare(`SELECT id, nome FROM ${tabela}`).all().map((l) => [l.id, l.nome]));

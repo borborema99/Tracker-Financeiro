@@ -169,3 +169,12 @@ a.botao, a.botao-primario {
   .tabela-mov td::before { content: none; }
   .tabela-mov .coluna-valor { text-align: right; }
 }
+
+/* Anexos e importação de extrato: o input de arquivo fica escondido, mas focável; o rótulo age como botão. */
+.campo-arquivo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+label[for="anexo-arquivo"], label[for="ofx-arquivo"] { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+label[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+label:has(+ .campo-arquivo:focus-visible) { outline: 3px solid var(--acento); outline-offset: 2px; }
+.miniatura-anexo { display: block; max-width: 100%; max-height: 16rem; margin: 0.5rem 0; border: 1px solid var(--borda); border-radius: var(--raio); object-fit: contain; }
+.linha-marcar { display: flex; align-items: flex-start; gap: 0.75rem; min-height: 2.75rem; }
+.linha-marcar input { width: 1.5rem; height: 1.5rem; flex: none; }

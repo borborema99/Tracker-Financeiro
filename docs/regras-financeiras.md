@@ -28,6 +28,9 @@ Cada regra vira teste cujo nome começa com o ID (`RF-01 ...`). A coluna "Testes
 | RF-22 | Evolução mensal: cada mês soma o realizado do próprio mês, na mesma base do resumo (cartão pela compra, estorno pela data dele; pendente, pagamento de fatura e transferência não entram). A média só conta a partir do primeiro mês com movimento. | Fase 3, Onda 2 | `tests/rf-22-relatorio-evolucao.test.js` |
 | RF-23 | Por categoria: subcategorias somam na principal, a soma dos itens é a despesa (ou receita) realizada do resumo, e o período anterior são os mesmos meses antes (meses cheios) ou o mesmo número de dias. Variação é null sem valor anterior. | Fase 3, Onda 2 | `tests/rf-23-relatorio-categorias.test.js` |
 | RF-24 | Maiores despesas: ranking das despesas realizadas (lançamentos liquidados e compras no cartão pelo valor total), da maior para a menor, limitado; as rotas exigem sessão e validam o período. | Fase 3, Onda 2 | `tests/rf-24-relatorio-api.test.js` |
+| RF-25 | Anexo (comprovante) só em lançamento existente; o tipo vem dos bytes (PDF, PNG, JPG, WEBP), com limite de tamanho e de quantidade, sem repetir o mesmo arquivo. Remover apaga o conteúdo e deixa o registro no audit_log; lançamento excluído esconde os anexos; o backup leva o conteúdo e o JSON não. | Fase 4, Onda 1 | `tests/rf-25-anexos.test.js` |
+| RF-26 | Leitura de OFX 1.x e 2.x: valor em centavos inteiros e com sinal (positivo é receita, negativo é despesa), data só AAAAMMDD, FITID repetido e linha ilegível vão para a lista de inválidas, e só extrato em BRL é aceito. | Fase 4, Onda 1 | `tests/rf-26-ofx.test.js` |
+| RF-27 | Importar extrato cria lançamentos liquidados que entram no saldo e no realizado uma única vez: o mesmo FITID nunca entra duas vezes (RF-09 só avisa, não bloqueia), o lote é tudo ou nada e quem exclui o lançamento pode importar de novo. | Fase 4, Onda 1 | `tests/rf-27-importacao-ofx.test.js` |
 
 ## Dinheiro (base das regras)
 
@@ -106,6 +109,14 @@ Cálculo em `servidor/dominio/relatorio.js` (puro). Decisões em `docs/adr/009-r
 - **Categorias (RF-23).** `/api/relatorios/categorias?de&ate&tipo` (despesa ou receita; sem datas, o mês atual). Receita usa só receita liquidada, com divisão. Categoria que só teve valor no período anterior aparece com valor zero.
 - **Maiores despesas (RF-24).** `/api/relatorios/maiores-despesas?de&ate&limite` (1 a 50, padrão 10).
 - **Período.** As duas datas juntas ou nenhuma, a final não antes da inicial, no máximo 2 anos (731 dias).
+
+## Anexos e importação OFX (Fase 4, Onda 1)
+
+Cálculo em `servidor/dominio/anexo.js` e `ofx.js` (puras). Decisões em `docs/adr/010-anexos-e-importacao-ofx.md`.
+
+- **Anexos (RF-25).** Corpo cru na requisição (sem dependência nova), nome no cabeçalho `x-nome-arquivo`. Limites: 5 MB por arquivo e 10 por lançamento. Imagem abre na tela; PDF baixa. O conteúdo fica no SQLite (`anexos_arquivos`), por isso o backup e a restauração o levam sem pasta à parte.
+- **OFX (RF-26).** Codificação pelo cabeçalho do arquivo (`CHARSET:1252`) ou, sem ele, UTF-8 com queda para Windows-1252. Sem FITID, a chave é derivada de data, valor, descrição e da ordem entre idênticas.
+- **Importação (RF-27).** Duas etapas: a prévia marca cada transação (`nova`, `ja_importada`, `possivel_duplicidade`) sem gravar; a confirmação revalida no servidor. Cada lançamento importado fica ligado ao FITID em `importacoes_ofx` (único por conta).
 
 ## RF-10 na Onda 0
 

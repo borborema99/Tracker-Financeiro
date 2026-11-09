@@ -39,6 +39,7 @@ function Acoes({ m }) {
       {m.tipo === 'despesa' && m.reembolsavel_centavos > 0 && (
         <Link className="botao" to={`/lancamentos/novo?reembolso=${m.id}`}>Registrar reembolso</Link>
       )}
+      <Link className="botao" to={`/lancamentos/${m.id}/anexos`}>Comprovantes</Link>
       <Link className="botao" to={`/lancamentos/${m.id}/historico`}>Histórico</Link>
       {m.status === 'pendente' ? (
         <button type="button" className="botao" onClick={() => liquidar.mutate()} disabled={liquidar.isPending}>

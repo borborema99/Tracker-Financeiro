@@ -21,6 +21,8 @@ import { rotasPlanejamento } from './rotas/planejamento.js';
 import { rotasDividas } from './rotas/dividas.js';
 import { rotasInvestimentos } from './rotas/investimentos.js';
 import { rotasRelatorios } from './rotas/relatorios.js';
+import { rotasAnexos } from './rotas/anexos.js';
+import { rotasImportacao } from './rotas/importacao.js';
 
 const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -109,6 +111,8 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasDividas);
   await app.register(rotasInvestimentos);
   await app.register(rotasRelatorios);
+  await app.register(rotasAnexos);
+  await app.register(rotasImportacao);
 
   const temFront = existsSync(config.pastaWeb);
   if (temFront) {

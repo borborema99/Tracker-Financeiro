@@ -28,6 +28,8 @@ import { Mais } from './Mais.jsx';
 // Recharts só é baixado quando se abre uma tela com gráfico.
 const Fluxo = lazy(() => import('../fluxo/Fluxo.jsx').then((m) => ({ default: m.Fluxo })));
 const Relatorios = lazy(() => import('../relatorios/Relatorios.jsx').then((m) => ({ default: m.Relatorios })));
+const Anexos = lazy(() => import('../movimentacoes/Anexos.jsx').then((m) => ({ default: m.Anexos })));
+const ImportarOfx = lazy(() => import('../importacao/ImportarOfx.jsx').then((m) => ({ default: m.ImportarOfx })));
 
 export function App() {
   const { data: sessao, isPending, error } = useSessao();
@@ -44,6 +46,22 @@ export function App() {
         <Route path="lancamentos/novo" element={<FormularioMovimentacao fuso={sessao.fuso} />} />
         <Route path="lancamentos/:id" element={<FormularioMovimentacao fuso={sessao.fuso} />} />
         <Route path="lancamentos/:id/historico" element={<Historico fuso={sessao.fuso} />} />
+        <Route
+          path="lancamentos/:id/anexos"
+          element={
+            <Suspense fallback={<p className="carregando">Carregando…</p>}>
+              <Anexos fuso={sessao.fuso} />
+            </Suspense>
+          }
+        />
+        <Route
+          path="importar"
+          element={
+            <Suspense fallback={<p className="carregando">Carregando…</p>}>
+              <ImportarOfx />
+            </Suspense>
+          }
+        />
         <Route path="contas" element={<Contas />} />
         <Route path="cartoes" element={<Cartoes />} />
         <Route path="cartoes/compras/nova" element={<Compra fuso={sessao.fuso} />} />

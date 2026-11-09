@@ -51,6 +51,10 @@ Cálculo financeiro só em `servidor/dominio/` (funções puras: `saldo`, `resum
 
 `dominio/investimento.js` (valor atual, resultado, totais da carteira) e `patrimonio.js` são puros. `banco/repositorios/investimentos.js` grava investimento, operações (aporte e resgate, com conta opcional) e avaliações (valor informado numa data), sempre com `audit_log` na mesma transação. As operações com conta entram no saldo por `operacoesComoMovimentos`, no mesmo molde dos pagamentos de fatura. `repositorios/patrimonio.js` junta contas, carteira, cartões e dívidas e chama o domínio; `/api/resumo` e `/api/patrimonio` usam o mesmo cálculo.
 
+## Anexos e importação (Fase 4)
+
+`dominio/anexo.js` (tipo pelos bytes, nome seguro) e `dominio/ofx.js` (leitura do extrato) são puros. `rotas/anexos.js` e `rotas/importacao.js` registram um parser de corpo cru (Buffer) só para os tipos de arquivo, dentro do próprio plugin, com `bodyLimit` por rota; a sessão, o Origin e o CSRF valem como em qualquer escrita. `repositorios/anexos.js` grava o registro e o conteúdo na mesma transação com `audit_log`. `repositorios/importacao.js` faz a prévia (sem gravar) e a confirmação, que cria os lançamentos por `criarMovimentacao` (então auditoria, saldo e resumo seguem as regras de sempre) e guarda o FITID.
+
 ## Relatórios (Fase 3)
 
 `dominio/relatorio.js` é puro (meses, evolução, período anterior, valores por categoria, ranking). `banco/repositorios/relatorios.js` só lê: reaproveita as consultas do resumo e do orçamento para o realizado ficar idêntico, e `rotas/relatorios.js` valida o período com `contratos/relatorios.js`. Nada é gravado e não há tabela nova. A tela é carregada por rota (lazy) e não usa biblioteca de gráfico: barras são `progress`.

@@ -15,6 +15,7 @@ export const ITENS_MENU = [
   { para: '/investimentos', rotulo: 'Investimentos', icone: 'investimentos' },
   { para: '/patrimonio', rotulo: 'Patrimônio', icone: 'patrimonio' },
   { para: '/relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
+  { para: '/importar', rotulo: 'Importar extrato', icone: 'importar' },
   { para: '/categorias', rotulo: 'Categorias', icone: 'categorias' },
   { para: '/alertas', rotulo: 'Alertas', icone: 'alertas' },
   { para: '/config', rotulo: 'Config.', icone: 'config' },

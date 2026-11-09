@@ -96,3 +96,12 @@ Em HTTP por IP o navegador não instala o app; isso é esperado. Para testar, si
 ## 11. Peso
 
 - [ ] No computador, `npm run orcamento` termina com "Dentro do orçamento." Em rede móvel lenta, o login e o Início abrem sem esperar o gráfico (ele só carrega depois).
+
+## 12. Comprovantes e importação de extrato
+
+- [ ] Lançamentos → "Comprovantes" de um lançamento: escolha uma foto tirada na hora; ela aparece como miniatura e abre ao tocar.
+- [ ] Anexe um PDF: ele é baixado ao tocar (não abre na tela). Um arquivo `.txt` renomeado para `.jpg` é recusado.
+- [ ] Remover um comprovante o tira da lista e ele não abre mais. Excluir o lançamento esconde os comprovantes dele.
+- [ ] Importar extrato → escolha um `.ofx` baixado do seu banco: a prévia mostra data, descrição e valor, só as novas vêm marcadas.
+- [ ] Confirmar cria os lançamentos liquidados e o saldo da conta muda; importar o mesmo arquivo de novo mostra todas como "já importada" e não duplica nada.
+- [ ] Um extrato em outra moeda é recusado com mensagem clara.
