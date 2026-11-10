@@ -77,6 +77,9 @@ function Acoes({ m }: { m: Movimentacao }) {
       <Button asChild variant="outline">
         <Link to={`/app/lancamentos/${m.id}/historico`}>Histórico</Link>
       </Button>
+      <Button asChild variant="outline">
+        <Link to={`/app/lancamentos/${m.id}/anexos`}>Comprovantes</Link>
+      </Button>
       {m.status === 'pendente' ? (
         <Button variant="outline" disabled={liquidar.isPending} onClick={() => liquidar.mutate()}>
           Liquidar

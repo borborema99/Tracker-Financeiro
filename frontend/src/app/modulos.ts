@@ -1,4 +1,26 @@
-import { Bell, CalendarClock, ChartNoAxesCombined, CreditCard, FolderTree, House, Landmark, ReceiptText, Repeat, type LucideIcon } from 'lucide-react';
+import {
+  Bell,
+  CalendarClock,
+  ChartNoAxesCombined,
+  Coins,
+  CreditCard,
+  FileChartColumn,
+  FileUp,
+  FolderTree,
+  HandCoins,
+  House,
+  Landmark,
+  PiggyBank,
+  ReceiptText,
+  Repeat,
+  Repeat2,
+  Scale,
+  Settings,
+  Target,
+  TrendingUp,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
 type Tela = LazyExoticComponent<ComponentType>;
@@ -27,6 +49,7 @@ export const MODULOS: Modulo[] = [
       { caminho: 'lancamentos/novo', tela: lazy(() => import('./telas/FormularioLancamento')) },
       { caminho: 'lancamentos/:id', tela: lazy(() => import('./telas/FormularioLancamento')) },
       { caminho: 'lancamentos/:id/historico', tela: lazy(() => import('./telas/HistoricoLancamento')) },
+      { caminho: 'lancamentos/:id/anexos', tela: lazy(() => import('./telas/Anexos')) },
     ],
     barra: true,
   },
@@ -60,9 +83,29 @@ export const MODULOS: Modulo[] = [
       { caminho: 'recorrencias/:id', tela: lazy(() => import('./telas/FormularioRecorrencia')) },
     ],
   },
+  { caminho: 'orcamento', rotulo: 'Orçamento', icone: PiggyBank, tela: lazy(() => import('./telas/Orcamento')) },
+  { caminho: 'metas', rotulo: 'Metas', icone: Target, tela: lazy(() => import('./telas/Metas')) },
+  {
+    caminho: 'dividas',
+    rotulo: 'Dívidas',
+    icone: HandCoins,
+    tela: lazy(() => import('./telas/Dividas')),
+    subrotas: [
+      { caminho: 'dividas/nova', tela: lazy(() => import('./telas/FormularioDivida')) },
+      { caminho: 'dividas/:id', tela: lazy(() => import('./telas/DividaDetalhe')) },
+    ],
+  },
+  { caminho: 'assinaturas', rotulo: 'Assinaturas', icone: Repeat2, tela: lazy(() => import('./telas/Assinaturas')) },
+  { caminho: 'investimentos', rotulo: 'Investimentos', icone: TrendingUp, tela: lazy(() => import('./telas/Investimentos')) },
+  { caminho: 'moedas', rotulo: 'Moedas', icone: Coins, tela: lazy(() => import('./telas/Moedas')) },
+  { caminho: 'patrimonio', rotulo: 'Patrimônio', icone: Scale, tela: lazy(() => import('./telas/Patrimonio')) },
+  { caminho: 'relatorios', rotulo: 'Relatórios', icone: FileChartColumn, tela: lazy(() => import('./telas/Relatorios')) },
+  { caminho: 'importar', rotulo: 'Importar extrato', icone: FileUp, tela: lazy(() => import('./telas/ImportarOfx')) },
   { caminho: 'contas', rotulo: 'Contas', icone: Landmark, tela: lazy(() => import('./telas/Contas')) },
   { caminho: 'categorias', rotulo: 'Categorias', icone: FolderTree, tela: lazy(() => import('./telas/Categorias')) },
   { caminho: 'alertas', rotulo: 'Alertas', icone: Bell, tela: lazy(() => import('./telas/Alertas')) },
+  { caminho: 'conta', rotulo: 'Conta', icone: UserRound, tela: lazy(() => import('./telas/Conta')) },
+  { caminho: 'configuracoes', rotulo: 'Configurações', icone: Settings, tela: lazy(() => import('./telas/Configuracoes')) },
 ];
 
 /** O link (no formato do servidor, ex.: '/orcamento?mes=2026-11') leva a uma tela que já existe? */

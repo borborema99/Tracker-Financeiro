@@ -130,3 +130,30 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * Medidor de progresso (<progress>): a cor do preenchimento é a `color` do elemento (text-entrada, text-aviso,
+ * text-saida, text-primary). `accent-color` não é pintado de forma igual em todo navegador; assim a cor vale em todos.
+ */
+@layer components {
+  .medidor {
+    appearance: none;
+    height: 0.5rem;
+    width: 100%;
+    overflow: hidden;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--muted);
+  }
+  .medidor::-webkit-progress-bar {
+    background: var(--muted);
+  }
+  .medidor::-webkit-progress-value {
+    background: currentcolor;
+    border-radius: 9999px;
+  }
+  .medidor::-moz-progress-bar {
+    background: currentcolor;
+    border-radius: 9999px;
+  }
+}

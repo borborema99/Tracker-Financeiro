@@ -46,6 +46,8 @@ Raio de borda 6 px: placa, não bolha. Sombra só nas etiquetas, com deslocament
 - Sino de alertas no topo, com selo da quantidade (`9+`); some o selo quando não há alerta. "Novo lançamento" sempre à mão: botão redondo "+" no celular (não cobre os valores das listas) e botão com texto a partir de 900 px; some em `/app/lancamentos/novo` e `/app/cartoes/compras*`.
 - Barra inferior: Início, Lançamentos, Compromissos, Fluxo de caixa e Mais. "Mais" (`/app/mais`) lista todos os módulos.
 - Listas de dados (lançamentos) viram cartões no celular: cada célula traz o próprio rótulo (`data-label`). Formulários: validação do contrato compartilhado antes de enviar (mesmas mensagens do servidor) e `ErroApi.campos` mostrado sob cada campo. Gráficos (Recharts) em chunk próprio, com as mesmas cores dos tokens `--entrada` e `--saida`.
+- Barras de progresso (orçamento, metas, dívidas, relatórios) usam `<progress class="medidor text-…">`: a cor é a `color` do elemento (`text-entrada` dentro do limite ou concluída, `text-aviso` perto, `text-saida` estourada ou atrasada, `text-primary` neutra). O percentual também aparece em texto, e a situação em etiqueta, para a cor não ser a única pista.
+- Ações destrutivas (excluir) pedem confirmação no mesmo lugar (`BotaoExcluir`); apagar a conta pede o nome de usuário e a senha.
 - Link só aparece se a tela existe: `destinoExiste` (em `app/modulos.ts`) filtra os links dos alertas, e os blocos do Início aparecem quando há dado **e** o módulo está no menu.
 - Menu só mostra módulo que funciona: `app/modulos.ts` é a lista única de menu, barra inferior e rotas.
 - Páginas de acesso: faixa amarela com o título e o formulário ao lado (embaixo no celular). Erro de servidor vai num `role="alert"` acima do campo; erro de campo, abaixo dele.

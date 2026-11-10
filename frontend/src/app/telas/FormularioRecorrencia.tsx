@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FREQUENCIAS, ROTULOS_FREQUENCIA } from '../../../../contratos/recorrencias.js';
 import { Campo } from '@/components/Campo';
 import { CampoValor } from '@/components/CampoValor';
@@ -17,6 +17,7 @@ import { useSessao } from '@/lib/sessao';
 import type { Recorrencia } from './Recorrencias';
 
 const VOLTAR_PARA = '/app/recorrencias';
+const VOLTAR_PARA_ASSINATURAS = '/app/assinaturas';
 
 function Formulario({ edicao, contas, categorias, fuso }: { edicao: Recorrencia | null; contas: Conta[]; categorias: Categoria[]; fuso: string | undefined }) {
   const navegar = useNavigate();
@@ -31,6 +32,10 @@ function Formulario({ edicao, contas, categorias, fuso }: { edicao: Recorrencia 
   const [fim, setFim] = useState(edicao?.data_fim ?? '');
   const [ativa, setAtiva] = useState(edicao?.ativa ?? true);
   const [observacao, setObservacao] = useState(edicao?.observacao ?? '');
+  const [params] = useSearchParams();
+  // Vem de "Nova assinatura" (?assinatura=1) ou da edição de uma que já é assinatura.
+  const viaAssinaturas = edicao?.assinatura ?? params.get('assinatura') === '1';
+  const [assinatura, setAssinatura] = useState(viaAssinaturas);
 
   const mapa = porId(categorias);
   const opcoesCategoria = categorias
@@ -52,16 +57,16 @@ function Formulario({ edicao, contas, categorias, fuso }: { edicao: Recorrencia 
           data_inicio: inicio,
           data_fim: fim || null,
           ativa,
-          // A marcação de assinatura ganha tela própria na Onda 4; até lá só se preserva o que já estava gravado.
-          assinatura: tipo === 'despesa' && (edicao?.assinatura ?? false),
+          assinatura: tipo === 'despesa' && assinatura,
           observacao,
         },
       }),
     onSuccess: async () => {
       await invalidar();
-      navegar(VOLTAR_PARA);
+      navegar(tipo === 'despesa' && assinatura ? VOLTAR_PARA_ASSINATURAS : VOLTAR_PARA);
     },
   });
+  const cancelarPara = viaAssinaturas ? VOLTAR_PARA_ASSINATURAS : VOLTAR_PARA;
   const campos = salvar.error instanceof ErroApi ? (salvar.error.campos ?? {}) : {};
   const geral = salvar.error && !(salvar.error instanceof ErroApi && salvar.error.campos) ? salvar.error.message : null;
 
@@ -149,6 +154,12 @@ function Formulario({ edicao, contas, categorias, fuso }: { edicao: Recorrencia 
           <input type="checkbox" className="size-5" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} />
           <span>Ativa (gera novas ocorrências)</span>
         </label>
+        {tipo === 'despesa' ? (
+          <label className="flex min-h-11 items-center gap-3">
+            <input type="checkbox" className="size-5" checked={assinatura} onChange={(e) => setAssinatura(e.target.checked)} />
+            <span>É uma assinatura (aparece em Assinaturas, com o custo por mês e por ano)</span>
+          </label>
+        ) : null}
         {edicao ? (
           <p className="text-sm text-muted-foreground">
             Mudanças valem daqui para frente: as ocorrências pendentes futuras são refeitas; o que já venceu ou foi liquidado não
@@ -161,7 +172,7 @@ function Formulario({ edicao, contas, categorias, fuso }: { edicao: Recorrencia 
             Salvar
           </Button>
           <Button asChild variant="ghost">
-            <Link to={VOLTAR_PARA}>Cancelar</Link>
+            <Link to={cancelarPara}>Cancelar</Link>
           </Button>
         </div>
       </form>

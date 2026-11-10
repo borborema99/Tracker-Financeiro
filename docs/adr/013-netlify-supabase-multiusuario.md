@@ -96,3 +96,15 @@ Removidas na Onda 1: `better-sqlite3` (o banco agora é Postgres) e `qrcode-term
 - **Fica para a Onda 4:** Comprovantes (ação por lançamento), marca de assinatura no formulário de recorrência (hoje só se preserva o valor gravado) e os módulos de planejamento e patrimônio.
 - **Orçamento de JS:** landing 109,5 kB de 120; app inicial 112,6 kB de 180. Recharts fica fora do pacote inicial.
 - **Testes de front novos (13 + 4 + 3):** máscara de dinheiro (`CampoValor`), formulário de lançamento, casca (atalho, sino, ocultar valores, barra) e registro de módulos.
+
+## Onda 4: planejamento, patrimônio e conta
+
+- **Telas:** Orçamento, Metas, Dívidas (lista, nova, detalhe com parcelas), Assinaturas, Investimentos, Moedas (contas, operações, cotações), Patrimônio, Relatórios, Importar extrato (OFX, prévia antes de criar), Comprovantes (ação por lançamento, `/app/lancamentos/:id/anexos`), Conta e Configurações. Todas lazy e registradas em `app/modulos.ts`; nenhuma entra na barra inferior (ficam em "Mais" e no menu lateral).
+- **Conta substitui o "Config." do legado:** trocar senha, encerrar as outras sessões, exportar (CSV e JSON), excluir a conta (digitar o nome de usuário e a senha; o botão só habilita com o usuário exato) e Sair. Configurações ficou só com o fuso. Os formulários validam com `esquemaTrocaSenha` e `esquemaExclusaoConta` de `contratos/sessao.js`.
+- **Sem regra no front:** totais, percentuais, situações (estourado, atrasada, concluída), custo mensal e anual de assinatura, patrimônio e rentabilidade vêm prontos da API. O front só formata. Investimento sem valor informado não mostra resultado; Patrimônio só mostra o que o servidor devolve (sem zero falso).
+- **Assinatura:** o formulário de recorrência ganhou a marca "É uma assinatura" (só para despesa). Vindo de "Nova assinatura" (`?assinatura=1`) ela já vem marcada e o salvar volta para Assinaturas.
+- **Medidor:** `<progress>` com a classe `.medidor` (em `tailwind.css`) e a cor vinda de `text-*`. `accent-color` não pintava a barra estourada de vermelho no Chromium, então a cor passou a ser da `color` do elemento. Sem `style=""`.
+- **Relatórios:** a evolução mês a mês reaproveita o `GraficoFluxo` (Recharts, lazy) e traz a tabela com os mesmos números.
+- **Comprovantes:** o arquivo vai cru no corpo (`enviarArquivo`), até 5 MB e 10 por lançamento; a imagem abre pelo endereço da API com a sessão (o Storage é privado).
+- **Fora desta onda (Onda 5):** `netlify.toml`, guia de deploy, revisão de segurança, remoção de `web/` e dos restos de SQLite, README, manifest e service worker.
+- **Testes de front novos:** conta (excluir, trocar senha, outras sessões), formulário de recorrência/assinatura, investimentos, patrimônio e registro de módulos.

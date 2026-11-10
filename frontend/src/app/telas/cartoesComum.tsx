@@ -34,7 +34,7 @@ export function Limite({ limite, detalhado = false }: { limite: LimiteDoCartao; 
         <Valor centavos={limite.disponivel_centavos} tipo={negativo ? 'saida' : 'neutro'} className="font-semibold" />
       </Numeros>
       <progress
-        className="h-2 w-full accent-primary"
+        className="medidor text-primary"
         max={limite.limite_centavos || 1}
         value={limite.usado_centavos}
         aria-label="Limite usado"
