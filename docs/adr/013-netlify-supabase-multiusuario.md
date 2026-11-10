@@ -52,6 +52,8 @@
 | `typescript-eslint` | dev | regras de lint para `.ts` e `.tsx` (ver pendência abaixo) |
 | `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` | dev | testes do front |
 
+| `@fontsource/big-shoulders-display` | front | fonte dos títulos (Onda 2), hospedada no próprio site: só os pesos 800 e 900 em latim (~14 kB cada em woff2), sem Google Fonts, compatível com a CSP `font-src 'self'` |
+
 Removidas na Onda 1: `better-sqlite3` (o banco agora é Postgres) e `qrcode-terminal` (só servia ao `iniciar:rede`, que saiu). Nenhuma dependência nova na Onda 1.
 
 `npm audit --omit=dev` não aponta nada; os 7 avisos moderados são de desenvolvimento, na cadeia do `typescript-eslint`.
@@ -74,3 +76,13 @@ Removidas na Onda 1: `better-sqlite3` (o banco agora é Postgres) e `qrcode-term
 - **O índice `idx_mov_valor` do SQLite não foi levado:** toda consulta filtra antes por `usuario_id`, e os demais índices já começam por ele.
 - **Demonstração.** `npm run demo` sobe sempre um PGlite local próprio (`data/pglite-demo`, porta 3100), nunca o banco configurado; o usuário `demo` é o único com a faixa de dados de demonstração.
 - **Cadastro** sem limite de taxa: mantenha `CADASTRO_ABERTO=0` fora de um período de convites.
+
+## Onda 2: identidade, páginas públicas e casca
+
+- **Identidade final: "letreiro de feira"** (amarelo-feira, tinta, tomate e folha; fonte Big Shoulders Display). Tokens e regras em `docs/design.md`. Escolhida pelo sorteio de direções da skill impeccable, sem página de decisão nem subagentes (pedido de seguir sem esperar; CLAUDE.md proíbe subagentes). O contexto de produto inferido está em `PRODUCT.md` e o contrato da direção em `.impeccable/surfaces/`.
+- **Rotas:** `/` landing, `/entrar`, `/criar-conta` (volta para `/` com o cadastro fechado), `/privacidade`, `/termos` (rascunho para revisão jurídica, com campos entre colchetes a preencher por quem publica) e `/app/*` atrás de `GuardaDeRota`. A guarda fica na entrada do site, não no chunk da casca: quem não tem sessão vai ao login sem baixar o tracker. Cada página pública é um chunk próprio.
+- **Redirecionamento pós-login** (`lib/redirecionamento.ts`): só vale caminho que, resolvido contra uma origem fictícia, continua nela e cai em `/app` ou `/app/...`. Recusa esquema, `//`, barra invertida, caracteres de controle e `..` que saia de `/app`.
+- **Sessão no front** (`lib/sessao.tsx`): `GET /api/sessao` pelo TanStack Query, token CSRF guardado em memória, cache limpo ao sair. A resposta é checada à mão e o tipo vem do contrato (`import type`): validar com o Zod puxaria ~35 kB para a landing e estouraria o orçamento de 120 kB.
+- **Menu:** `app/modulos.ts` é a lista única de menu, barra inferior e rotas; módulo só entra quando a tela funciona. Na Onda 2 só existe "Início" (tela provisória). O botão "Novo lançamento", o ocultar valores e o item "Mais" da barra inferior entram com as telas da Onda 3, porque hoje não teriam efeito.
+- **Orçamento de JS:** landing inicial 108 kB de 120; app inicial 108 kB de 180.
+- **Pendência de ambiente (da Onda 0, ainda aberta):** o ESLint não lê `.ts`/`.tsx` por causa do hook que protege `eslint.config.js`; o `tsc` estrito cobre os tipos.
