@@ -1,6 +1,5 @@
 import { FUSO_PADRAO } from '../../contratos/config.js';
 import { gravarConfig, lerConfig } from '../banco/config-db.js';
-import { semearPadroes } from '../banco/padroes.js';
 import { listarCategorias } from '../banco/repositorios/categorias.js';
 import {
   criarCartao,
@@ -16,9 +15,12 @@ import { criarInvestimento, registrarAvaliacao, registrarOperacao } from '../ban
 import { criarMovimentacao, liquidarMovimentacao } from '../banco/repositorios/movimentacoes.js';
 import { definirLimite } from '../banco/repositorios/orcamentos.js';
 import { criarRecorrencia } from '../banco/repositorios/recorrencias.js';
+import { buscarPorNome, criarUsuario } from '../banco/repositorios/usuarios.js';
+import { criarEscopo } from '../banco/pg/escopo.js';
 import { hojeNoFuso } from '../dominio/datas.js';
-import { definirSenha } from '../seguranca/senha.js';
+import { hashSenha } from '../seguranca/senha.js';
 
+export const NOME_DEMO = 'demo';
 export const SENHA_DEMO = 'demonstracao';
 
 function somarDias(iso, dias) {
@@ -54,17 +56,21 @@ const LANCAMENTOS = [
   [9, 'receita', 'Rendimento da poupança', 3120, 'Rendimentos', 'Poupança'],
 ];
 
-/** Onda 2: um cartão com compras à vista e parceladas, um estorno e a fatura mais antiga já paga. */
-function semearCartoes(db) {
-  if (lerConfig(db, 'demo_dados_v2') === '1') return;
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
-  const conta = listarContas(db).find((c) => c.nome === 'Conta corrente');
+const contextoDeHoje = () => ({ hoje: hojeNoFuso(FUSO_PADRAO, new Date()), agora: new Date() });
+const categoriasPorNome = async (esc) => new Map((await listarCategorias(esc)).map((c) => [c.nome, c.id]));
+const contaCorrente = async (esc) => (await listarContas(esc)).find((c) => c.nome === 'Conta corrente');
 
-  db.transaction(() => {
-    const cartao = criarCartao(
-      db,
+/** Onda 2: um cartão com compras à vista e parceladas, um estorno e a fatura mais antiga já paga. */
+async function semearCartoes(esc) {
+  if ((await lerConfig(esc, 'demo_dados_v2')) === '1') return;
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const categorias = await categoriasPorNome(esc);
+  const conta = await contaCorrente(esc);
+
+  await esc.transacao(async (tx) => {
+    const cartao = await criarCartao(
+      tx,
       {
         nome: 'Cartão de demonstração',
         limite_centavos: 600000,
@@ -75,63 +81,65 @@ function semearCartoes(db) {
       },
       contexto,
     );
-    const comprar = (dias, descricao, valor, categoria, parcelas = 1) =>
-      criarCompra(
-        db,
-        {
-          cartao_id: cartao.id, descricao, valor_total_centavos: valor, categoria_id: categorias.get(categoria),
-          data_compra: somarDias(hoje, -dias), parcelas_total: parcelas, observacao: '',
-        },
-        contexto,
+    const comprar = async (dias, descricao, valor, categoria, parcelas = 1) =>
+      (
+        await criarCompra(
+          tx,
+          {
+            cartao_id: cartao.id, descricao, valor_total_centavos: valor, categoria_id: categorias.get(categoria),
+            data_compra: somarDias(hoje, -dias), parcelas_total: parcelas, observacao: '',
+          },
+          contexto,
+        )
       ).compra;
 
-    comprar(75, 'Curso de idiomas', 120000, 'Cursos', 6);
-    comprar(45, 'Tênis', 45000, 'Vestuário', 3);
-    comprar(8, 'Mercado do mês', 62000, 'Mercado');
-    comprar(5, 'Streaming anual', 29900, 'Assinaturas e streaming');
-    const jantar = comprar(4, 'Jantar', 18000, 'Restaurantes');
-    estornarCompra(db, jantar.id, { valor_centavos: 4000, descricao: 'Item devolvido' }, contexto);
+    await comprar(75, 'Curso de idiomas', 120000, 'Cursos', 6);
+    await comprar(45, 'Tênis', 45000, 'Vestuário', 3);
+    await comprar(8, 'Mercado do mês', 62000, 'Mercado');
+    await comprar(5, 'Streaming anual', 29900, 'Assinaturas e streaming');
+    const jantar = await comprar(4, 'Jantar', 18000, 'Restaurantes');
+    await estornarCompra(tx, jantar.id, { valor_centavos: 4000, descricao: 'Item devolvido' }, contexto);
 
-    const maisAntiga = faturasDoCartao(db, cartao.id, hoje).at(-1);
+    const maisAntiga = (await faturasDoCartao(tx, cartao.id, hoje)).at(-1);
     if (conta && maisAntiga && maisAntiga.data_vencimento < hoje && maisAntiga.saldo_centavos > 0) {
-      pagarFatura(
-        db,
+      await pagarFatura(
+        tx,
         maisAntiga.id,
         { valor_centavos: maisAntiga.saldo_centavos, conta_id: conta.id, data_pagamento: maisAntiga.data_vencimento },
         contexto,
       );
     }
-    gravarConfig(db, 'demo_dados_v2', '1');
-  })();
+    await gravarConfig(tx, 'demo_dados_v2', '1');
+  });
 }
 
 /** Onda 3: recorrências (aluguel e salário, começando daqui a alguns dias) e uma conta já atrasada. */
-function semearCompromissos(db) {
-  if (lerConfig(db, 'demo_dados_v3') === '1') return;
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
-  const conta = listarContas(db).find((c) => c.nome === 'Conta corrente');
+async function semearCompromissos(esc) {
+  if ((await lerConfig(esc, 'demo_dados_v3')) === '1') return;
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const categorias = await categoriasPorNome(esc);
+  const conta = await contaCorrente(esc);
   if (!conta) return;
 
-  db.transaction(() => {
+  await esc.transacao(async (tx) => {
     const recorrencia = (tipo, descricao, valor, categoria, inicioEmDias) =>
       criarRecorrencia(
-        db,
+        tx,
         {
           tipo, descricao, valor_centavos: valor, conta_id: conta.id, categoria_id: categorias.get(categoria) ?? null,
           frequencia: 'mensal', data_inicio: somarDias(hoje, inicioEmDias), data_fim: null, ativa: true, observacao: '',
         },
         contexto,
       );
-    recorrencia('despesa', 'Aluguel', 180000, 'Aluguel ou financiamento', 9);
-    recorrencia('despesa', 'Internet', 9990, 'Internet', 3);
-    recorrencia('receita', 'Salário', 520000, 'Salário', 18);
+    await recorrencia('despesa', 'Aluguel', 180000, 'Aluguel ou financiamento', 9);
+    await recorrencia('despesa', 'Internet', 9990, 'Internet', 3);
+    await recorrencia('receita', 'Salário', 520000, 'Salário', 18);
 
     // Uma conta que já passou do vencimento, para a demonstração mostrar o atraso calculado (RF-07).
     const venceu = somarDias(hoje, -4);
-    criarMovimentacao(
-      db,
+    await criarMovimentacao(
+      tx,
       {
         tipo: 'despesa', descricao: 'Mensalidade da academia', valor_centavos: 12900, conta_id: conta.id,
         categoria_id: categorias.get('Saúde') ?? null, divisoes: [], observacao: '', tarifa_centavos: 0,
@@ -139,47 +147,47 @@ function semearCompromissos(db) {
       },
       contexto,
     );
-    gravarConfig(db, 'demo_dados_v3', '1');
-  })();
+    await gravarConfig(tx, 'demo_dados_v3', '1');
+  });
 }
 
 /** Fase 2 (planejamento): limites de orçamento a partir do mês atual e duas metas com aportes. */
-function semearPlanejamento(db) {
-  if (lerConfig(db, 'demo_dados_v4') === '1') return;
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
+async function semearPlanejamento(esc) {
+  if ((await lerConfig(esc, 'demo_dados_v4')) === '1') return;
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const categorias = await categoriasPorNome(esc);
 
-  db.transaction(() => {
+  await esc.transacao(async (tx) => {
     for (const [categoria, limite] of [['Alimentação', 100000], ['Transporte', 60000], ['Lazer', 30000], ['Saúde', 25000]]) {
       if (categorias.has(categoria)) {
-        definirLimite(db, categorias.get(categoria), { mes_inicio: hoje.slice(0, 7), limite_centavos: limite }, contexto);
+        await definirLimite(tx, categorias.get(categoria), { mes_inicio: hoje.slice(0, 7), limite_centavos: limite }, contexto);
       }
     }
-    const reserva = criarMeta(
-      db,
+    const reserva = await criarMeta(
+      tx,
       { nome: 'Reserva de emergência', valor_alvo_centavos: 1000000, prazo: somarDias(hoje, 365), observacao: '' },
       contexto,
     );
-    registrarAporte(db, reserva.id, { tipo: 'aporte', valor_centavos: 250000, data: somarDias(hoje, -20), observacao: '' }, contexto);
-    const viagem = criarMeta(db, { nome: 'Viagem de fim de ano', valor_alvo_centavos: 400000, prazo: somarDias(hoje, 180), observacao: '' }, contexto);
-    registrarAporte(db, viagem.id, { tipo: 'aporte', valor_centavos: 100000, data: somarDias(hoje, -5), observacao: '' }, contexto);
-    gravarConfig(db, 'demo_dados_v4', '1');
-  })();
+    await registrarAporte(tx, reserva.id, { tipo: 'aporte', valor_centavos: 250000, data: somarDias(hoje, -20), observacao: '' }, contexto);
+    const viagem = await criarMeta(tx, { nome: 'Viagem de fim de ano', valor_alvo_centavos: 400000, prazo: somarDias(hoje, 180), observacao: '' }, contexto);
+    await registrarAporte(tx, viagem.id, { tipo: 'aporte', valor_centavos: 100000, data: somarDias(hoje, -5), observacao: '' }, contexto);
+    await gravarConfig(tx, 'demo_dados_v4', '1');
+  });
 }
 
 /** Fase 2, Onda 2: uma dívida em 12 parcelas (uma já paga e uma atrasada) e três assinaturas. */
-function semearDividasEAssinaturas(db) {
-  if (lerConfig(db, 'demo_dados_v5') === '1') return;
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
-  const conta = listarContas(db).find((c) => c.nome === 'Conta corrente');
+async function semearDividasEAssinaturas(esc) {
+  if ((await lerConfig(esc, 'demo_dados_v5')) === '1') return;
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const categorias = await categoriasPorNome(esc);
+  const conta = await contaCorrente(esc);
   if (!conta) return;
 
-  db.transaction(() => {
-    const divida = criarDivida(
-      db,
+  await esc.transacao(async (tx) => {
+    const divida = await criarDivida(
+      tx,
       {
         nome: 'Empréstimo pessoal', credor: 'Banco de demonstração', valor_total_centavos: 360000, parcelas_total: 12,
         primeiro_vencimento: somarDias(hoje, -45), conta_id: conta.id, categoria_id: categorias.get('Outras despesas') ?? null,
@@ -188,15 +196,15 @@ function semearDividasEAssinaturas(db) {
       contexto,
     );
     const primeira = divida.parcelas[0];
-    liquidarMovimentacao(db, primeira.lancamento_id, primeira.data_vencimento, contexto);
+    await liquidarMovimentacao(tx, primeira.lancamento_id, primeira.data_vencimento, contexto);
 
     for (const [descricao, valor, frequencia, inicioEmDias] of [
       ['Streaming de vídeo', 3990, 'mensal', 6],
       ['Armazenamento em nuvem', 1290, 'mensal', 12],
       ['Seguro do celular', 24000, 'anual', 40],
     ]) {
-      criarRecorrencia(
-        db,
+      await criarRecorrencia(
+        tx,
         {
           tipo: 'despesa', descricao, valor_centavos: valor, conta_id: conta.id,
           categoria_id: categorias.get('Assinaturas e streaming') ?? null, frequencia,
@@ -205,81 +213,62 @@ function semearDividasEAssinaturas(db) {
         contexto,
       );
     }
-    gravarConfig(db, 'demo_dados_v5', '1');
-  })();
+    await gravarConfig(tx, 'demo_dados_v5', '1');
+  });
 }
 
 /** Fase 3, Onda 1: um investimento com aporte saindo da poupança e valor informado, e outro sem valor informado. */
-function semearInvestimentos(db) {
-  if (lerConfig(db, 'demo_dados_v6') === '1') return;
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const poupanca = listarContas(db).find((c) => c.nome === 'Poupança');
+async function semearInvestimentos(esc) {
+  if ((await lerConfig(esc, 'demo_dados_v6')) === '1') return;
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const poupanca = (await listarContas(esc)).find((c) => c.nome === 'Poupança');
   if (!poupanca) return;
 
-  db.transaction(() => {
-    const tesouro = criarInvestimento(
-      db,
+  await esc.transacao(async (tx) => {
+    const tesouro = await criarInvestimento(
+      tx,
       { nome: 'Tesouro Selic', tipo: 'tesouro', instituicao: 'Corretora de demonstração', observacao: '' },
       contexto,
     );
-    registrarOperacao(
-      db,
+    await registrarOperacao(
+      tx,
       tesouro.id,
       { tipo: 'aporte', valor_centavos: 200000, data: somarDias(hoje, -60), conta_id: poupanca.id, observacao: '' },
       contexto,
     );
-    registrarAvaliacao(db, tesouro.id, { data: hoje, valor_centavos: 204300 }, contexto);
+    await registrarAvaliacao(tx, tesouro.id, { data: hoje, valor_centavos: 204300 }, contexto);
 
-    const fundo = criarInvestimento(db, { nome: 'Fundo de ações', tipo: 'fundo', instituicao: '', observacao: '' }, contexto);
-    registrarOperacao(
-      db,
+    const fundo = await criarInvestimento(tx, { nome: 'Fundo de ações', tipo: 'fundo', instituicao: '', observacao: '' }, contexto);
+    await registrarOperacao(
+      tx,
       fundo.id,
       { tipo: 'aporte', valor_centavos: 50000, data: somarDias(hoje, -20), conta_id: null, observacao: '' },
       contexto,
     );
-    gravarConfig(db, 'demo_dados_v6', '1');
-  })();
+    await gravarConfig(tx, 'demo_dados_v6', '1');
+  });
 }
 
-/**
- * Prepara o banco de demonstração: senha e dados fictícios (contas, lançamentos, uma transferência
- * com tarifa, compromissos pendentes, um cartão, recorrências, orçamento, metas, dívida e assinaturas).
- * Cada onda acrescenta os dados dos módulos que cria.
- */
-export async function semearDemo(db) {
-  if (lerConfig(db, 'demo_semeado') !== '1') {
-    await definirSenha(db, SENHA_DEMO);
-    gravarConfig(db, 'demo_semeado', '1');
-  }
-  if (lerConfig(db, 'demo_dados_v1') === '1') {
-    semearCartoes(db);
-    semearCompromissos(db);
-    semearPlanejamento(db);
-    semearDividasEAssinaturas(db);
-    semearInvestimentos(db);
-    return;
-  }
+async function semearBase(esc) {
+  const contexto = contextoDeHoje();
+  const { hoje } = contexto;
+  const categorias = await categoriasPorNome(esc);
 
-  semearPadroes(db);
-  const hoje = hojeNoFuso(FUSO_PADRAO, new Date());
-  const contexto = { hoje, agora: new Date() };
-  const categorias = new Map(listarCategorias(db).map((c) => [c.nome, c.id]));
-
-  db.transaction(() => {
-    const novaConta = (nome, tipo, saldo) =>
-      criarConta(db, { nome, tipo, saldo_inicial_centavos: saldo, arquivada: false }).id;
+  await esc.transacao(async (tx) => {
+    const novaConta = async (nome, tipo, saldo) =>
+      (await criarConta(tx, { nome, tipo, saldo_inicial_centavos: saldo, arquivada: false })).id;
     const contas = {
-      'Conta corrente': novaConta('Conta corrente', 'corrente', 150000),
-      Poupança: novaConta('Poupança', 'poupanca', 500000),
-      Carteira: novaConta('Carteira', 'carteira', 20000),
+      'Conta corrente': await novaConta('Conta corrente', 'corrente', 150000),
+      Poupança: await novaConta('Poupança', 'poupanca', 500000),
+      Carteira: await novaConta('Carteira', 'carteira', 20000),
     };
 
     const base = { divisoes: [], observacao: '', tarifa_centavos: 0, status: 'liquidada' };
     for (const [dias, tipo, descricao, valor, categoria, conta] of LANCAMENTOS) {
       const data = somarDias(hoje, -dias);
-      criarMovimentacao(
-        db,
+      await criarMovimentacao(
+        tx,
         {
           ...base, tipo, descricao, valor_centavos: valor, conta_id: contas[conta],
           categoria_id: categorias.get(categoria), data_competencia: data, data_liquidacao: data,
@@ -289,8 +278,8 @@ export async function semearDemo(db) {
     }
 
     const transferencia = somarDias(hoje, -10);
-    criarMovimentacao(
-      db,
+    await criarMovimentacao(
+      tx,
       {
         ...base, tipo: 'transferencia', descricao: 'Reserva do mês', valor_centavos: 100000,
         conta_id: contas['Conta corrente'], conta_destino_id: contas.Poupança,
@@ -305,8 +294,8 @@ export async function semearDemo(db) {
       [8, 'receita', 'Reembolso combinado', 15000, 'Reembolsos'],
     ]) {
       const vencimento = somarDias(hoje, dias);
-      criarMovimentacao(
-        db,
+      await criarMovimentacao(
+        tx,
         {
           ...base, tipo, descricao, valor_centavos: valor, conta_id: contas['Conta corrente'],
           categoria_id: categorias.get(categoria), status: 'pendente', data_competencia: vencimento,
@@ -315,11 +304,32 @@ export async function semearDemo(db) {
         contexto,
       );
     }
-    gravarConfig(db, 'demo_dados_v1', '1');
-  })();
-  semearCartoes(db);
-  semearCompromissos(db);
-  semearPlanejamento(db);
-  semearDividasEAssinaturas(db);
-  semearInvestimentos(db);
+    await gravarConfig(tx, 'demo_dados_v1', '1');
+  });
+}
+
+/**
+ * Prepara a conta de demonstração: o usuário `demo` (o único com a faixa "dados de demonstração") e dados
+ * fictícios (contas, lançamentos, uma transferência com tarifa, compromissos pendentes, um cartão, recorrências,
+ * orçamento, metas, dívida e assinaturas). Idempotente: cada bloco se marca no config do próprio usuário.
+ * Devolve o id do usuário demo.
+ */
+export async function semearDemo(banco, { pepper }) {
+  let demo = await buscarPorNome(banco, NOME_DEMO);
+  if (!demo) {
+    const id = await criarUsuario(banco, {
+      nome: NOME_DEMO,
+      senhaHash: await hashSenha(SENHA_DEMO, pepper),
+      demo: true,
+    });
+    demo = { id };
+  }
+  const esc = criarEscopo(banco, demo.id);
+  if ((await lerConfig(esc, 'demo_dados_v1')) !== '1') await semearBase(esc);
+  await semearCartoes(esc);
+  await semearCompromissos(esc);
+  await semearPlanejamento(esc);
+  await semearDividasEAssinaturas(esc);
+  await semearInvestimentos(esc);
+  return demo.id;
 }

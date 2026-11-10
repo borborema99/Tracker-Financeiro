@@ -90,7 +90,7 @@ test('API orçamento: cada alteração fica no histórico e a categoria com orç
   const vestuario = porNome(lista, 'Vestuário');
   await chamar('PUT', `/api/orcamento/${lazer.id}`, { mes_inicio: mesAtual(), limite_centavos: 30000 });
   await chamar('PUT', `/api/orcamento/${lazer.id}`, { mes_inicio: mesAtual(), limite_centavos: 40000 });
-  const acoes = db.prepare("SELECT acao FROM audit_log WHERE entidade = 'orcamento' ORDER BY id").all().map((l) => l.acao);
+  const acoes = (await db.todos("SELECT acao FROM audit_log WHERE entidade = 'orcamento' ORDER BY id", [])).map((l) => l.acao);
   assert.deepEqual(acoes, ['criar', 'editar']);
 
   await chamar('PUT', `/api/orcamento/${vestuario.id}`, { mes_inicio: mesAtual(), limite_centavos: 10000 });

@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { RAIZ, carregarEnv } from '../servidor/config.js';
+import { RAIZ, carregarEnv, lerAmbiente, variaveisFaltando } from '../servidor/config.js';
 
 carregarEnv();
-if (!process.env.SEGREDO_SESSAO) {
-  console.error('Rode primeiro: npm run setup');
+const faltando = variaveisFaltando(lerAmbiente());
+if (faltando.length > 0) {
+  console.error(`Variáveis ausentes: ${faltando.join(', ')}. Rode primeiro: npm run setup`);
   process.exit(1);
 }
 

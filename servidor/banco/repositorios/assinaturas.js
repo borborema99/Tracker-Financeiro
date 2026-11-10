@@ -3,8 +3,8 @@ import { custoAnualCentavos, custoMensalEquivalenteCentavos, totaisDeAssinaturas
 import { atualizarRecorrencia, listarRecorrencias, obterRecorrencia } from './recorrencias.js';
 
 /** Assinaturas = recorrências de despesa marcadas como assinatura, com o custo equivalente calculado. */
-export function listarAssinaturas(db) {
-  const itens = listarRecorrencias(db)
+export async function listarAssinaturas(esc) {
+  const itens = (await listarRecorrencias(esc))
     .filter((r) => r.assinatura)
     .map((r) => ({
       ...r,
@@ -21,17 +21,17 @@ export function listarAssinaturas(db) {
 }
 
 /** Resumo para o início: só existe com assinatura ativa (RF-10). */
-export function resumoDeAssinaturas(db) {
-  const { totais } = listarAssinaturas(db);
+export async function resumoDeAssinaturas(esc) {
+  const { totais } = await listarAssinaturas(esc);
   return totais.ativas > 0 ? totais : null;
 }
 
 /** Pausa ou reativa uma assinatura. Pausada não gera cobranças; reativar não recria as do período pausado (RF-18). */
-export function alternarAssinatura(db, id, ativa, ctx) {
-  const r = obterRecorrencia(db, id);
+export async function alternarAssinatura(esc, id, ativa, ctx) {
+  const r = await obterRecorrencia(esc, id);
   if (!r || !r.assinatura) throw naoEncontrado('Assinatura');
   return atualizarRecorrencia(
-    db,
+    esc,
     id,
     {
       tipo: r.tipo,

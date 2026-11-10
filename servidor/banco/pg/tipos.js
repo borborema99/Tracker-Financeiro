@@ -4,11 +4,19 @@
 //   date         -> texto AAAA-MM-DD (nunca objeto Date, que traria fuso)
 //   timestamptz  -> texto ISO em UTC ("2026-06-15T15:00:00.000Z"), igual ao que a API já devolvia
 
-export const OID = { INT8: 20, DATE: 1082, TIMESTAMPTZ: 1184 };
+export const OID = { INT8: 20, NUMERIC: 1700, DATE: 1082, TIMESTAMPTZ: 1184 };
 
 export function paraNumero(texto) {
   const n = Number(texto);
   if (!Number.isSafeInteger(n)) throw new RangeError(`Inteiro fora do limite seguro: ${texto}`);
+  return n;
+}
+
+/** `sum(bigint)` no Postgres devolve numeric (texto): vira Number, e inteiro grande demais é erro. */
+export function numericoComoNumero(texto) {
+  const n = Number(texto);
+  if (!Number.isFinite(n)) throw new RangeError(`Número inválido: ${texto}`);
+  if (Number.isInteger(n) && !Number.isSafeInteger(n)) throw new RangeError(`Inteiro fora do limite seguro: ${texto}`);
   return n;
 }
 
@@ -36,6 +44,7 @@ export const instanteParaBanco = (v) => (v instanceof Date ? v.toISOString() : v
 /** Opção `types` do driver `postgres`. As chaves têm nomes próprios para não substituir os tipos padrão. */
 export const tiposDoDriver = {
   inteiro_seguro: { to: OID.INT8, from: [OID.INT8], serialize: (v) => String(v), parse: paraNumero },
+  numerico: { to: OID.NUMERIC, from: [OID.NUMERIC], serialize: (v) => String(v), parse: numericoComoNumero },
   data_texto: { to: OID.DATE, from: [OID.DATE], serialize: (v) => v, parse: dataComoTexto },
   instante_iso: { to: OID.TIMESTAMPTZ, from: [OID.TIMESTAMPTZ], serialize: instanteParaBanco, parse: instanteComoIso },
 };
@@ -43,6 +52,7 @@ export const tiposDoDriver = {
 /** Opção `parsers` do PGlite. */
 export const parsersDoPglite = {
   [OID.INT8]: paraNumero,
+  [OID.NUMERIC]: numericoComoNumero,
   [OID.DATE]: dataComoTexto,
   [OID.TIMESTAMPTZ]: instanteComoIso,
 };

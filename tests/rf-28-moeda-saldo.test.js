@@ -55,42 +55,42 @@ test('RF-28: cotação digitada vira milionésimos sem float, e volta para texto
   assert.equal(formatarTaxa(1), '0,000001');
 });
 
-test('RF-28: depósito e saque movem só a conta em moeda, e o saldo nunca fica negativo', () => {
-  const db = bancoComPadroes();
-  const c = criarContaMoeda(db, { ...conta, saldo_inicial_centavos: 5000 }, CTX);
+test('RF-28: depósito e saque movem só a conta em moeda, e o saldo nunca fica negativo', async () => {
+  const db = await bancoComPadroes();
+  const c = await criarContaMoeda(db, { ...conta, saldo_inicial_centavos: 5000 }, CTX);
   assert.equal(c.saldo_centavos, 5000);
-  assert.equal(registrarOperacaoMoeda(db, c.id, op(), CTX).saldo_centavos, 15000);
-  assert.equal(registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', valor_centavos: 15000 }), CTX).saldo_centavos, 0);
-  assert.throws(
-    () => registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', valor_centavos: 1 }), CTX),
+  assert.equal((await registrarOperacaoMoeda(db, c.id, op(), CTX)).saldo_centavos, 15000);
+  assert.equal((await registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', valor_centavos: 15000 }), CTX)).saldo_centavos, 0);
+  await assert.rejects(
+    async () => await registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', valor_centavos: 1 }), CTX),
     (e) => e.statusCode === 409,
   );
-  assert.equal(obterContaMoeda(db, c.id, CTX.hoje).saldo_centavos, 0);
+  assert.equal((await obterContaMoeda(db, c.id, CTX.hoje)).saldo_centavos, 0);
 });
 
-test('RF-28: conta encerrada é a que teve operações e zerou; remover depósito que sustenta saque é recusado', () => {
-  const db = bancoComPadroes();
-  const c = criarContaMoeda(db, conta, CTX);
+test('RF-28: conta encerrada é a que teve operações e zerou; remover depósito que sustenta saque é recusado', async () => {
+  const db = await bancoComPadroes();
+  const c = await criarContaMoeda(db, conta, CTX);
   assert.equal(c.encerrada, false, 'conta nova e vazia não é encerrada');
-  const comDeposito = registrarOperacaoMoeda(db, c.id, op(), CTX);
+  const comDeposito = await registrarOperacaoMoeda(db, c.id, op(), CTX);
   const deposito = comDeposito.operacoes[0];
-  const zerada = registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', data: '2026-06-11' }), CTX);
+  const zerada = await registrarOperacaoMoeda(db, c.id, op({ tipo: 'saque', data: '2026-06-11' }), CTX);
   assert.equal(zerada.encerrada, true);
-  assert.throws(() => excluirOperacaoMoeda(db, c.id, deposito.id, CTX), (e) => e.statusCode === 409);
-  const saque = obterContaMoeda(db, c.id, CTX.hoje).operacoes.find((o) => o.tipo === 'saque');
-  excluirOperacaoMoeda(db, c.id, saque.id, CTX);
-  assert.equal(obterContaMoeda(db, c.id, CTX.hoje).saldo_centavos, 10000);
+  await assert.rejects(async () => await excluirOperacaoMoeda(db, c.id, deposito.id, CTX), (e) => e.statusCode === 409);
+  const saque = (await obterContaMoeda(db, c.id, CTX.hoje)).operacoes.find((o) => o.tipo === 'saque');
+  await excluirOperacaoMoeda(db, c.id, saque.id, CTX);
+  assert.equal((await obterContaMoeda(db, c.id, CTX.hoje)).saldo_centavos, 10000);
 });
 
-test('RF-28 (RF-08): conta com operações não é excluída; sem operações, sim, e a data futura é recusada', () => {
-  const db = bancoComPadroes();
-  const c = criarContaMoeda(db, conta, CTX);
-  assert.throws(() => registrarOperacaoMoeda(db, c.id, op({ data: '2026-06-16' }), CTX), (e) => e.statusCode === 400);
-  registrarOperacaoMoeda(db, c.id, op(), CTX);
-  assert.throws(() => excluirContaMoeda(db, c.id, CTX), (e) => e.statusCode === 409);
-  const vazia = criarContaMoeda(db, { ...conta, nome: 'Sem operações' }, CTX);
-  excluirContaMoeda(db, vazia.id, CTX);
-  assert.equal(obterContaMoeda(db, vazia.id, CTX.hoje), null);
+test('RF-28 (RF-08): conta com operações não é excluída; sem operações, sim, e a data futura é recusada', async () => {
+  const db = await bancoComPadroes();
+  const c = await criarContaMoeda(db, conta, CTX);
+  await assert.rejects(async () => await registrarOperacaoMoeda(db, c.id, op({ data: '2026-06-16' }), CTX), (e) => e.statusCode === 400);
+  await registrarOperacaoMoeda(db, c.id, op(), CTX);
+  await assert.rejects(async () => await excluirContaMoeda(db, c.id, CTX), (e) => e.statusCode === 409);
+  const vazia = await criarContaMoeda(db, { ...conta, nome: 'Sem operações' }, CTX);
+  await excluirContaMoeda(db, vazia.id, CTX);
+  assert.equal(await obterContaMoeda(db, vazia.id, CTX.hoje), null);
 });
 
 test('RF-28: o contrato recusa moeda fora da lista, saldo negativo, valor zero e cotação inválida', () => {

@@ -1,19 +1,18 @@
-import { esquemaConfig, FUSO_PADRAO } from '../../contratos/config.js';
+import { esquemaConfig } from '../../contratos/config.js';
 import { auditar } from '../banco/auditoria.js';
-import { gravarConfig, lerConfig } from '../banco/config-db.js';
+import { gravarConfig } from '../banco/config-db.js';
+import { fusoDe } from './util.js';
 
 export async function rotasConfig(app) {
-  const { db } = app;
-
-  app.get('/api/config', async () => ({ fuso: lerConfig(db, 'fuso') ?? FUSO_PADRAO }));
+  app.get('/api/config', async (request) => ({ fuso: await fusoDe(request.esc) }));
 
   app.put('/api/config', async (request) => {
     const { fuso } = esquemaConfig.parse(request.body);
-    db.transaction(() => {
-      const antes = { fuso: lerConfig(db, 'fuso') ?? FUSO_PADRAO };
-      gravarConfig(db, 'fuso', fuso);
-      auditar(db, { entidade: 'config', id: 'fuso', acao: 'editar', antes, depois: { fuso } });
-    })();
+    await request.esc.transacao(async (tx) => {
+      const antes = { fuso: await fusoDe(tx) };
+      await gravarConfig(tx, 'fuso', fuso);
+      await auditar(tx, { entidade: 'config', id: 'fuso', acao: 'editar', antes, depois: { fuso } });
+    });
     return { fuso };
   });
 }

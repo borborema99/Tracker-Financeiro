@@ -20,7 +20,7 @@ const recorrencia = (conta, extra = {}) => ({
   ...extra,
 });
 
-test('RF-17: o custo anual vem das cobranças por ano e o mensal é o anual dividido por 12', () => {
+test('RF-17: o custo anual vem das cobranças por ano e o mensal é o anual dividido por 12', async () => {
   assert.equal(custoAnualCentavos(3990, 'mensal'), 47880);
   assert.equal(custoAnualCentavos(12000, 'anual'), 12000);
   assert.equal(custoAnualCentavos(1000, 'semanal'), 52000);
@@ -29,7 +29,7 @@ test('RF-17: o custo anual vem das cobranças por ano e o mensal é o anual divi
   assert.equal(custoMensalEquivalenteCentavos(12000, 'anual'), 1000);
   assert.equal(custoMensalEquivalenteCentavos(1000, 'semanal'), 4333, '52000 ÷ 12 = 4333,33 -> 4333');
   assert.equal(custoMensalEquivalenteCentavos(1000, 'quinzenal'), 2167, '26000 ÷ 12 = 2166,67 -> 2167');
-  assert.throws(() => custoAnualCentavos(1, 'diaria'), RangeError);
+  await assert.rejects(async () => custoAnualCentavos(1, 'diaria'), RangeError);
 });
 
 test('RF-17: o total mensal sai da soma dos custos anuais, sem acumular erro de arredondamento', () => {
@@ -48,14 +48,14 @@ test('RF-17 e RF-18: assinatura pausada não entra nos totais', () => {
   assert.deepEqual(t, { ativas: 1, pausadas: 1, anual_centavos: 47880, mensal_centavos: 3990 });
 });
 
-test('RF-17: só recorrência marcada como assinatura aparece na lista, com custo calculado e próxima cobrança', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db);
-  criarRecorrencia(db, recorrencia(conta), CTX);
-  criarRecorrencia(db, recorrencia(conta, { descricao: 'Aluguel', valor_centavos: 180000, assinatura: false }), CTX);
-  criarRecorrencia(db, recorrencia(conta, { descricao: 'Seguro', valor_centavos: 120000, frequencia: 'anual', data_inicio: '2026-09-01' }), CTX);
+test('RF-17: só recorrência marcada como assinatura aparece na lista, com custo calculado e próxima cobrança', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db);
+  await criarRecorrencia(db, recorrencia(conta), CTX);
+  await criarRecorrencia(db, recorrencia(conta, { descricao: 'Aluguel', valor_centavos: 180000, assinatura: false }), CTX);
+  await criarRecorrencia(db, recorrencia(conta, { descricao: 'Seguro', valor_centavos: 120000, frequencia: 'anual', data_inicio: '2026-09-01' }), CTX);
 
-  const { itens, totais } = listarAssinaturas(db);
+  const { itens, totais } = await listarAssinaturas(db);
   assert.deepEqual(itens.map((i) => i.descricao), ['Streaming', 'Seguro'], 'ordem pela próxima cobrança; aluguel fica de fora');
   assert.equal(itens[0].custo_mensal_centavos, 3990);
   assert.equal(itens[0].custo_anual_centavos, 47880);
@@ -64,13 +64,13 @@ test('RF-17: só recorrência marcada como assinatura aparece na lista, com cust
   assert.deepEqual(totais, { ativas: 2, pausadas: 0, anual_centavos: 167880, mensal_centavos: 13990 });
 });
 
-test('RF-17 e RF-10: sem assinatura ativa não há bloco de assinaturas', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db);
-  assert.equal(resumoDeAssinaturas(db), null);
-  const r = criarRecorrencia(db, recorrencia(conta), CTX);
-  assert.equal(resumoDeAssinaturas(db).mensal_centavos, 3990);
-  atualizarRecorrencia(db, r.id, recorrencia(conta, { ativa: false }), CTX);
-  assert.equal(resumoDeAssinaturas(db), null, 'pausada não conta');
-  assert.equal(listarAssinaturas(db).itens.length, 1, 'mas continua na lista para ser reativada');
+test('RF-17 e RF-10: sem assinatura ativa não há bloco de assinaturas', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db);
+  assert.equal(await resumoDeAssinaturas(db), null);
+  const r = await criarRecorrencia(db, recorrencia(conta), CTX);
+  assert.equal((await resumoDeAssinaturas(db)).mensal_centavos, 3990);
+  await atualizarRecorrencia(db, r.id, recorrencia(conta, { ativa: false }), CTX);
+  assert.equal(await resumoDeAssinaturas(db), null, 'pausada não conta');
+  assert.equal((await listarAssinaturas(db)).itens.length, 1, 'mas continua na lista para ser reativada');
 });

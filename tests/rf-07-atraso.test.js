@@ -65,24 +65,24 @@ test('RF-07 "atrasada" não é um status que se possa digitar', () => {
   assert.ok(r.error.issues.some((i) => i.path.includes('status')));
 });
 
-test('RF-07 o atraso muda só com o calendário: nada é gravado e o status segue pendente', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db);
-  const m = novaMov(db, {
+test('RF-07 o atraso muda só com o calendário: nada é gravado e o status segue pendente', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db);
+  const m = await novaMov(db, {
     conta_id: conta.id, status: 'pendente', descricao: 'Luz', data_competencia: '2026-06-10', data_vencimento: '2026-06-20',
   });
   const filtros = { tipo: 'despesa', pagina: 1, por_pagina: 50 };
 
-  const antes = listarCompromissos(db, filtros, '2026-06-15');
+  const antes = await listarCompromissos(db, filtros, '2026-06-15');
   assert.equal(antes.itens[0].situacao, 'a_vencer');
   assert.equal(antes.totais.atrasado_centavos, 0);
 
-  const depois = listarCompromissos(db, filtros, '2026-06-25');
+  const depois = await listarCompromissos(db, filtros, '2026-06-25');
   assert.equal(depois.itens[0].situacao, 'atrasada');
   assert.equal(depois.itens[0].dias_de_atraso, 5);
   assert.equal(depois.totais.atrasado_centavos, 1000);
 
-  assert.equal(db.prepare('SELECT status FROM movimentacoes WHERE id = ?').get(m.id).status, 'pendente');
-  assert.equal(listarCompromissos(db, { ...filtros, situacao: 'atrasada' }, '2026-06-25').total, 1);
-  assert.equal(listarCompromissos(db, { ...filtros, situacao: 'atrasada' }, '2026-06-15').total, 0);
+  assert.equal((await db.um('SELECT status FROM movimentacoes WHERE id = ?', [m.id])).status, 'pendente');
+  assert.equal((await listarCompromissos(db, { ...filtros, situacao: 'atrasada' }, '2026-06-25')).total, 1);
+  assert.equal((await listarCompromissos(db, { ...filtros, situacao: 'atrasada' }, '2026-06-15')).total, 0);
 });

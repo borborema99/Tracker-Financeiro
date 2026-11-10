@@ -24,96 +24,96 @@ const ARQUIVO = ofx([
 const itens = (previa, extra = {}) =>
   previa.itens.map((i) => ({ fitid: i.fitid, data: i.data, valor_centavos: i.valor_centavos, descricao: i.descricao, ...extra }));
 
-test('RF-27: a prévia marca nova, já importada e possível duplicidade, e não grava nada', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 0);
+test('RF-27: a prévia marca nova, já importada e possível duplicidade, e não grava nada', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 0);
   // Mesmo valor, data, conta e descrição de F1, lançado à mão.
-  novaMov(db, { conta_id: conta.id, valor_centavos: 4590, data_competencia: '2026-06-10', data_liquidacao: '2026-06-10', descricao: 'mercado central' });
-  const antes = db.prepare('SELECT COUNT(*) AS n FROM movimentacoes').get().n;
+  await novaMov(db, { conta_id: conta.id, valor_centavos: 4590, data_competencia: '2026-06-10', data_liquidacao: '2026-06-10', descricao: 'mercado central' });
+  const antes = (await db.um('SELECT COUNT(*) AS n FROM movimentacoes', [])).n;
 
-  const previa = previaOfx(db, conta.id, ARQUIVO);
+  const previa = await previaOfx(db, conta.id, ARQUIVO);
   assert.deepEqual(previa.itens.map((i) => [i.fitid, i.situacao]), [['F1', 'possivel_duplicidade'], ['F2', 'nova'], ['F3', 'nova']]);
   assert.deepEqual(previa.resumo, { total: 3, novas: 2, ja_importadas: 0, possiveis_duplicidades: 1 });
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM movimentacoes').get().n, antes);
+  assert.equal((await db.um('SELECT COUNT(*) AS n FROM movimentacoes', [])).n, antes);
 
-  confirmarOfx(db, { conta_id: conta.id, itens: itens(previa).filter((i) => i.fitid === 'F2') }, CTX);
-  const de = previaOfx(db, conta.id, ARQUIVO);
+  await confirmarOfx(db, { conta_id: conta.id, itens: itens(previa).filter((i) => i.fitid === 'F2') }, CTX);
+  const de = await previaOfx(db, conta.id, ARQUIVO);
   assert.equal(de.itens.find((i) => i.fitid === 'F2').situacao, 'ja_importada');
 });
 
-test('RF-27: importar cria lançamentos liquidados que entram no saldo e no realizado, uma vez só', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 100000);
-  const previa = previaOfx(db, conta.id, ARQUIVO);
-  const r = confirmarOfx(db, { conta_id: conta.id, itens: itens(previa) }, CTX);
+test('RF-27: importar cria lançamentos liquidados que entram no saldo e no realizado, uma vez só', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 100000);
+  const previa = await previaOfx(db, conta.id, ARQUIVO);
+  const r = await confirmarOfx(db, { conta_id: conta.id, itens: itens(previa) }, CTX);
   assert.equal(r.importadas, 3);
   assert.equal(r.ignoradas, 0);
-  assert.equal(saldoDe(db, conta.id), 100000 - 4590 + 300000 - 12000);
+  assert.equal(await saldoDe(db, conta.id), 100000 - 4590 + 300000 - 12000);
 
-  const movs = movimentacoesDoPeriodo(db, '2026-06-01', '2026-06-30');
+  const movs = await movimentacoesDoPeriodo(db, '2026-06-01', '2026-06-30');
   assert.deepEqual(resumoRealizado(movs, '2026-06-01', '2026-06-30'), { receitas: 300000, despesas: 16590, resultado: 283410 });
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE entidade = 'importacao_ofx'").get().n, 1);
+  assert.equal((await db.um("SELECT COUNT(*) AS n FROM audit_log WHERE entidade = 'importacao_ofx'", [])).n, 1);
 });
 
-test('RF-27: o mesmo extrato importado de novo não duplica nada', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 0);
-  const primeira = confirmarOfx(db, { conta_id: conta.id, itens: itens(previaOfx(db, conta.id, ARQUIVO)) }, CTX);
+test('RF-27: o mesmo extrato importado de novo não duplica nada', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 0);
+  const primeira = await confirmarOfx(db, { conta_id: conta.id, itens: itens(await previaOfx(db, conta.id, ARQUIVO)) }, CTX);
   assert.equal(primeira.importadas, 3);
-  const saldo = saldoDe(db, conta.id);
+  const saldo = await saldoDe(db, conta.id);
 
-  const repetida = previaOfx(db, conta.id, ARQUIVO);
+  const repetida = await previaOfx(db, conta.id, ARQUIVO);
   assert.equal(repetida.resumo.ja_importadas, 3);
-  const segunda = confirmarOfx(db, { conta_id: conta.id, itens: itens(repetida) }, CTX);
+  const segunda = await confirmarOfx(db, { conta_id: conta.id, itens: itens(repetida) }, CTX);
   assert.deepEqual([segunda.importadas, segunda.ignoradas], [0, 3]);
-  assert.equal(saldoDe(db, conta.id), saldo);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM movimentacoes WHERE excluida_em IS NULL').get().n, 3);
+  assert.equal(await saldoDe(db, conta.id), saldo);
+  assert.equal((await db.um('SELECT COUNT(*) AS n FROM movimentacoes WHERE excluida_em IS NULL', [])).n, 3);
 
   // O mesmo FITID repetido dentro da própria confirmação também entra uma vez só.
-  const outra = novaConta(db, 'Conta B', 0);
-  const dobro = confirmarOfx(db, { conta_id: outra.id, itens: [...itens(repetida), ...itens(repetida)] }, CTX);
+  const outra = await novaConta(db, 'Conta B', 0);
+  const dobro = await confirmarOfx(db, { conta_id: outra.id, itens: [...itens(repetida), ...itens(repetida)] }, CTX);
   assert.deepEqual([dobro.importadas, dobro.ignoradas], [3, 3]);
 });
 
-test('RF-27: quem excluiu o lançamento importado pode importar o extrato de novo; a duplicidade só avisa', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 0);
+test('RF-27: quem excluiu o lançamento importado pode importar o extrato de novo; a duplicidade só avisa', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 0);
   const unica = ofx([['U1', '20260610', '-10.00', 'PADARIA']]);
-  const { ids } = confirmarOfx(db, { conta_id: conta.id, itens: itens(previaOfx(db, conta.id, unica)) }, CTX);
-  excluirMovimentacao(db, ids[0], CTX);
-  assert.equal(previaOfx(db, conta.id, unica).itens[0].situacao, 'nova');
-  const de = confirmarOfx(db, { conta_id: conta.id, itens: itens(previaOfx(db, conta.id, unica)) }, CTX);
+  const { ids } = await confirmarOfx(db, { conta_id: conta.id, itens: itens(await previaOfx(db, conta.id, unica)) }, CTX);
+  await excluirMovimentacao(db, ids[0], CTX);
+  assert.equal((await previaOfx(db, conta.id, unica)).itens[0].situacao, 'nova');
+  const de = await confirmarOfx(db, { conta_id: conta.id, itens: itens(await previaOfx(db, conta.id, unica)) }, CTX);
   assert.equal(de.importadas, 1);
-  assert.equal(saldoDe(db, conta.id), -1000);
+  assert.equal(await saldoDe(db, conta.id), -1000);
 
   // Com um lançamento igual já existente (outra origem), confirmar não bloqueia: só conta o aviso.
   const manual = ofx([['M1', '20260620', '-33.00', 'Almoço']]);
-  novaMov(db, { conta_id: conta.id, valor_centavos: 3300, data_competencia: '2026-06-20', data_liquidacao: '2026-06-20', descricao: 'almoco' });
-  const r = confirmarOfx(db, { conta_id: conta.id, itens: itens(previaOfx(db, conta.id, manual)) }, CTX);
+  await novaMov(db, { conta_id: conta.id, valor_centavos: 3300, data_competencia: '2026-06-20', data_liquidacao: '2026-06-20', descricao: 'almoco' });
+  const r = await confirmarOfx(db, { conta_id: conta.id, itens: itens(await previaOfx(db, conta.id, manual)) }, CTX);
   assert.deepEqual([r.importadas, r.avisos_de_duplicidade], [1, 1]);
 });
 
-test('RF-27: tudo ou nada; categoria precisa combinar com receita ou despesa; conta arquivada e moeda estrangeira são recusadas', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 0);
-  const salario = categoriaPorNome(db, 'Salário');
-  const mercado = categoriaPorNome(db, 'Mercado');
-  const previa = previaOfx(db, conta.id, ARQUIVO);
+test('RF-27: tudo ou nada; categoria precisa combinar com receita ou despesa; conta arquivada e moeda estrangeira são recusadas', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 0);
+  const salario = await categoriaPorNome(db, 'Salário');
+  const mercado = await categoriaPorNome(db, 'Mercado');
+  const previa = await previaOfx(db, conta.id, ARQUIVO);
 
   // F1 é despesa e recebe categoria de receita: o lote inteiro falha e nada fica gravado.
   const ruim = itens(previa).map((i) => (i.fitid === 'F1' ? { ...i, categoria_id: salario.id } : i));
-  assert.throws(() => confirmarOfx(db, { conta_id: conta.id, itens: ruim }, CTX));
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM movimentacoes').get().n, 0);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM importacoes_ofx').get().n, 0);
+  await assert.rejects(async () => await confirmarOfx(db, { conta_id: conta.id, itens: ruim }, CTX));
+  assert.equal((await db.um('SELECT COUNT(*) AS n FROM movimentacoes', [])).n, 0);
+  assert.equal((await db.um('SELECT COUNT(*) AS n FROM importacoes_ofx', [])).n, 0);
 
   const bom = itens(previa).map((i) => (i.fitid === 'F1' ? { ...i, categoria_id: mercado.id } : i));
-  assert.equal(confirmarOfx(db, { conta_id: conta.id, itens: bom }, CTX).importadas, 3);
+  assert.equal((await confirmarOfx(db, { conta_id: conta.id, itens: bom }, CTX)).importadas, 3);
 
-  assert.throws(() => previaOfx(db, conta.id, ofx([['D1', '20260601', '-1.00', 'X']], 'USD')), (e) => e.statusCode === 400 && /USD/.test(e.campos.arquivo));
-  assert.throws(() => previaOfx(db, conta.id, Buffer.from('nada a ver')), (e) => e.statusCode === 400 && 'arquivo' in e.campos);
-  assert.throws(() => previaOfx(db, 9999, ARQUIVO), (e) => e.statusCode === 404);
-  db.prepare('UPDATE contas SET arquivada = 1 WHERE id = ?').run(conta.id);
-  assert.throws(() => previaOfx(db, conta.id, ARQUIVO), (e) => e.statusCode === 400);
+  await assert.rejects(async () => await previaOfx(db, conta.id, ofx([['D1', '20260601', '-1.00', 'X']], 'USD')), (e) => e.statusCode === 400 && /USD/.test(e.campos.arquivo));
+  await assert.rejects(async () => await previaOfx(db, conta.id, Buffer.from('nada a ver')), (e) => e.statusCode === 400 && 'arquivo' in e.campos);
+  await assert.rejects(async () => await previaOfx(db, 9999, ARQUIVO), (e) => e.statusCode === 404);
+  (await db.rodar('UPDATE contas SET arquivada = true WHERE id = ?', [conta.id]));
+  await assert.rejects(async () => await previaOfx(db, conta.id, ARQUIVO), (e) => e.statusCode === 400);
 });
 
 test('API importação: exige sessão, recebe o arquivo cru, confirma e não aceita corpo vazio nem excesso', async (t) => {
@@ -126,7 +126,7 @@ test('API importação: exige sessão, recebe o arquivo cru, confirma e não ace
   const { cookie, csrf } = await entrar(ctx.app);
   const chamar = (url, payload, tipo = 'application/json') =>
     ctx.app.inject({ method: 'POST', url, headers: { host: HOST, origin: ORIGEM, cookie, 'x-csrf-token': csrf, 'content-type': tipo }, payload });
-  const conta = novaConta(ctx.db, 'Conta A', 0);
+  const conta = await novaConta(ctx.db, 'Conta A', 0);
 
   const vazio = await chamar(`/api/importacao/ofx/previa?conta_id=${conta.id}`, Buffer.alloc(0), 'application/x-ofx');
   assert.equal(vazio.statusCode, 400);

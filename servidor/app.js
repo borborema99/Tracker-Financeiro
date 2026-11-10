@@ -1,11 +1,12 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { ZodError } from 'zod';
+import { criarEscopo } from './banco/pg/escopo.js';
 import { aplicarCabecalhos } from './seguranca/cabecalhos.js';
 import { hostPermitido, origemValida } from './seguranca/origem.js';
-import { COOKIE_SESSAO, csrfConfere, sessaoValida } from './seguranca/sessao.js';
+import { buscarSessao, csrfConfere, nomeDoCookie } from './seguranca/sessao.js';
 import { rotasSaude } from './rotas/saude.js';
 import { rotasSessao } from './rotas/sessao.js';
 import { rotasConfig } from './rotas/config.js';
@@ -28,22 +29,28 @@ import { rotasImportacao } from './rotas/importacao.js';
 const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
- * Monta o servidor. Rotas públicas declaram `config: { publica: true }`.
- * Toda escrita exige Origin válida; escrita autenticada exige também o token CSRF.
+ * Monta o servidor (ADR 013). `banco` e `armazenamento` vêm de fora: a função do Netlify, o `npm run dev` e os
+ * testes montam o mesmo app com bancos diferentes. Rotas públicas declaram `config: { publica: true }`.
+ *
+ * Toda escrita exige Origin válida; escrita autenticada exige também o token CSRF. Depois da sessão validada,
+ * `request.esc` é o escopo do usuário: o único caminho das rotas até os dados.
+ *
+ * `trustProxy`: no desenvolvimento só o loopback é confiável. Na função do Netlify é `true`, e a função remove o
+ * `x-forwarded-for` de entrada e entrega o IP real como `remoteAddress` (netlify/functions/api.mjs).
+ * `servirFront: false` na função: o Netlify serve os arquivos estáticos.
  */
-export async function criarApp({ config, db, logger = false }) {
-  const https =
-    config.httpsCert && config.httpsKey
-      ? { cert: readFileSync(config.httpsCert), key: readFileSync(config.httpsKey) }
-      : null;
+export async function criarApp({
+  config,
+  banco,
+  armazenamento,
+  logger = false,
+  trustProxy = ['127.0.0.1', '::1'],
+  servirFront = true,
+}) {
+  const app = Fastify({ logger, trustProxy });
 
-  const app = Fastify({
-    logger,
-    trustProxy: ['127.0.0.1', '::1'],
-    ...(https ? { https } : {}),
-  });
-
-  app.decorate('db', db);
+  app.decorate('db', banco);
+  app.decorate('armazenamento', armazenamento);
   app.decorate('cfg', config);
 
   // Registro das rotas de /api: o teste de segurança confere que cada uma exige sessão (ou declara ser pública).
@@ -56,6 +63,14 @@ export async function criarApp({ config, db, logger = false }) {
   });
   app.decorate('rotas', rotas);
   await app.register(cookie);
+
+  /** Em https o cookie é `__Host-sessao`; em http (só desenvolvimento local), `sessao`. Lê só o do protocolo atual. */
+  app.decorate('cookieDaSessao', (request) => nomeDoCookie(request.protocol === 'https'));
+  app.decorate('lerSessao', async (request) => {
+    const token = request.cookies[app.cookieDaSessao(request)];
+    const sessao = token ? await buscarSessao(banco, token) : null;
+    return { token, sessao };
+  });
 
   app.addHook('onRequest', async (request, reply) => {
     if (!hostPermitido(request.headers.host, config.origensPermitidas)) {
@@ -70,9 +85,12 @@ export async function criarApp({ config, db, logger = false }) {
     }
     if (request.routeOptions.config?.publica) return;
 
-    const token = request.cookies[COOKIE_SESSAO];
-    if (!sessaoValida(db, token)) return reply.code(401).send({ erro: 'Sessão expirada. Entre de novo.' });
+    const { token, sessao } = await app.lerSessao(request);
+    if (!sessao) return reply.code(401).send({ erro: 'Sessão expirada. Entre de novo.' });
     request.tokenSessao = token;
+    request.usuarioId = sessao.usuarioId;
+    request.nomeUsuario = sessao.nome;
+    request.esc = criarEscopo(banco, sessao.usuarioId);
 
     if (METODOS_ESCRITA.has(request.method)) {
       if (!csrfConfere(request.headers['x-csrf-token'], token, config.segredo)) {
@@ -88,6 +106,10 @@ export async function criarApp({ config, db, logger = false }) {
       const campos = Object.fromEntries(erro.issues.map((i) => [i.path.join('.') || '_', i.message]));
       return reply.code(400).send({ erro: 'Dados inválidos.', campos });
     }
+    // Rede de segurança do isolamento: chave estrangeira composta recusa referência a recurso de outra conta
+    // (conta_id, categoria_id... de outro usuário). Para quem pediu, o recurso simplesmente não existe.
+    if (erro.code === '23503') return reply.code(404).send({ erro: 'Registro não encontrado.' });
+    if (erro.code === '23505') return reply.code(409).send({ erro: 'Já existe um registro igual.' });
     if (erro.statusCode && erro.statusCode < 500) {
       return reply
         .code(erro.statusCode)
@@ -116,7 +138,7 @@ export async function criarApp({ config, db, logger = false }) {
   await app.register(rotasAnexos);
   await app.register(rotasImportacao);
 
-  const temFront = existsSync(config.pastaWeb);
+  const temFront = servirFront && existsSync(config.pastaWeb);
   if (temFront) {
     await app.register(fastifyStatic, {
       root: config.pastaWeb,
@@ -130,7 +152,7 @@ export async function criarApp({ config, db, logger = false }) {
   app.setNotFoundHandler((request, reply) => {
     if (request.url.startsWith('/api/')) return reply.code(404).send({ erro: 'Não encontrado.' });
     if (request.method === 'GET' && temFront) return reply.sendFile('index.html');
-    if (request.method === 'GET') {
+    if (request.method === 'GET' && servirFront) {
       return reply
         .code(503)
         .type('text/plain; charset=utf-8')

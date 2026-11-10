@@ -1,183 +1,179 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { fazerBackup } from '../scripts/backup.js';
-import { conferirBackup, restaurarBanco } from '../scripts/lib/restauracao.js';
-import { abrirBanco } from '../servidor/banco/conexao.js';
-import { migrar } from '../servidor/banco/migrar.js';
-import { criarRecorrencia } from '../servidor/banco/repositorios/recorrencias.js';
-import { semearPadroes } from '../servidor/banco/padroes.js';
+import { carimbo, gravarBackup } from '../scripts/backup.js';
+import { montarBackup, restaurarBackup } from '../scripts/lib/copia.js';
+import { criarArmazenamentoMemoria } from '../servidor/armazenamento/index.js';
+import { criarEscopo } from '../servidor/banco/pg/escopo.js';
+import { anexarArquivo, listarAnexos, obterArquivo } from '../servidor/banco/repositorios/anexos.js';
 import { listarContas } from '../servidor/banco/repositorios/contas.js';
-import { conferirSenha, definirSenha } from '../servidor/seguranca/senha.js';
-import { CTX, novaConta, novaCompra, novaMov, novoCartao } from './ajuda.js';
+import { criarRecorrencia } from '../servidor/banco/repositorios/recorrencias.js';
+import { CTX, banco, novaConta, novaCompra, novaMov, novoCartao, novoUsuarioDeTeste } from './ajuda.js';
 
-const abertos = new Set();
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('comprovante-do-backup')]);
+const TABELAS = ['contas', 'movimentacoes', 'compras_cartao', 'parcelas_cartao', 'faturas', 'recorrencias', 'anexos'];
 
-/** Abre o banco e lembra dele: no Windows a pasta temporária só some depois que todo banco é fechado. */
-function abrir(caminho) {
-  const db = abrirBanco(caminho);
-  abertos.add(db);
-  return db;
-}
-
-function pastaTemporaria(t) {
-  const pasta = mkdtempSync(join(tmpdir(), 'tracker-teste-'));
-  t.after(() => {
-    for (const db of abertos) if (db.open) db.close();
-    abertos.clear();
-    rmSync(pasta, { recursive: true, force: true, maxRetries: 30, retryDelay: 100 }); // o Windows solta o arquivo com atraso
-  });
-  return pasta;
-}
-
-/** Banco em arquivo (como o de verdade) com dados de todos os módulos. */
-async function bancoPopulado(caminho) {
-  const db = abrir(caminho);
-  migrar(db);
-  semearPadroes(db);
-  await definirSenha(db, 'senha-de-teste-123');
-  const conta = novaConta(db, 'Corrente', 100000);
-  novaMov(db, { conta_id: conta.id, valor_centavos: 2500, descricao: 'Mercado' });
-  novaMov(db, { conta_id: conta.id, status: 'pendente', data_vencimento: '2026-06-20', descricao: 'Luz' });
-  novaCompra(db, novoCartao(db), { valor_total_centavos: 9000, parcelas_total: 3 });
-  criarRecorrencia(
+/** Usuário com dados de todos os módulos e um comprovante no armazenamento. */
+async function usuarioPopulado(armazenamento) {
+  const id = await novoUsuarioDeTeste();
+  const db = criarEscopo(banco, id);
+  const conta = await novaConta(db, 'Corrente', 100000);
+  const mov = await novaMov(db, { conta_id: conta.id, valor_centavos: 2500, descricao: 'Mercado' });
+  await novaMov(db, { conta_id: conta.id, status: 'pendente', data_vencimento: '2026-06-20', descricao: 'Luz' });
+  await novaCompra(db, await novoCartao(db), { valor_total_centavos: 9000, parcelas_total: 3 });
+  await criarRecorrencia(
     db,
     { tipo: 'despesa', descricao: 'Aluguel', valor_centavos: 50000, conta_id: conta.id, categoria_id: null, frequencia: 'mensal', data_inicio: '2026-06-15', data_fim: null, ativa: true, observacao: '' },
     CTX,
   );
-  return db;
+  await anexarArquivo(db, armazenamento, mov.id, { nome: 'recibo.png', conteudo: PNG }, CTX);
+  return { id, db, conta };
 }
 
-const contagens = (db) =>
-  Object.fromEntries(
-    ['contas', 'movimentacoes', 'compras_cartao', 'parcelas_cartao', 'faturas', 'recorrencias', 'audit_log'].map((t) => [
-      t,
-      db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n,
-    ]),
+// Em sequência de propósito: o banco de teste usa SAVEPOINTs, que não aceitam comandos intercalados.
+async function contagens(db) {
+  const resultado = {};
+  for (const t of TABELAS) resultado[t] = (await db.um(`SELECT COUNT(*) AS n FROM ${t} WHERE usuario_id = :u`, [])).n;
+  return resultado;
+}
+const saldos = async (db) => (await listarContas(db)).map((c) => [c.nome, c.saldo_centavos]);
+
+test('backup: o JSON traz tudo do usuário e os comprovantes em base64, sem senha nem sessão', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db } = await usuarioPopulado(arm);
+  const outro = criarEscopo(banco, await novoUsuarioDeTeste());
+  await novaConta(outro, 'Conta de outra pessoa', 1);
+
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+  assert.equal(backup.sistema, 'tracker-financeiro');
+  assert.equal(backup.dados.contas.length, 1, 'só as contas deste usuário');
+  assert.equal(backup.dados.movimentacoes.length, (await contagens(db)).movimentacoes);
+  assert.ok(backup.dados.movimentacoes.length >= 2);
+  const [anexo] = backup.dados.anexos;
+  assert.equal(Buffer.from(backup.arquivos[anexo.id], 'base64').equals(PNG), true);
+  assert.equal('caminho_storage' in anexo, false, 'o caminho do storage não vai no arquivo');
+  assert.deepEqual(backup.anexos_sem_arquivo, []);
+  assert.doesNotMatch(JSON.stringify(backup), /scrypt|senha_hash|sessoes|tentativas/);
+  assert.deepEqual(await contagens(db), { ...(await contagens(db)), contas: 1 });
+});
+
+test('backup: comprovante que sumiu do storage é listado em anexos_sem_arquivo, sem derrubar o backup', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id } = await usuarioPopulado(arm);
+  for (const caminho of arm.caminhos()) await arm.apagar(caminho);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+  assert.equal(backup.anexos_sem_arquivo.length, 1);
+  assert.deepEqual(backup.arquivos, {});
+});
+
+test('restaurar: volta exatamente ao estado do backup e leva os comprovantes', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db } = await usuarioPopulado(arm);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+  const antes = { contagens: await contagens(db), saldos: await saldos(db) };
+
+  // Depois do backup a pessoa "estraga" tudo.
+  const extra = await novaConta(db, 'Conta que não existia no backup', 5);
+  await novaMov(db, { conta_id: extra.id, valor_centavos: 777 });
+  assert.notDeepEqual(await contagens(db), antes.contagens);
+  const objetoAntigo = arm.caminhos()[0];
+
+  const resultado = await restaurarBackup(banco, arm, id, JSON.parse(JSON.stringify(backup)));
+  assert.equal(resultado.comprovantes, 1);
+  assert.deepEqual(await contagens(db), antes.contagens);
+  assert.deepEqual(await saldos(db), antes.saldos);
+
+  const mov = await db.um("SELECT id FROM movimentacoes WHERE descricao = 'Mercado' AND usuario_id = :u", []);
+  const [anexo] = await listarAnexos(db, mov.id);
+  const { conteudo } = await obterArquivo(db, arm, anexo.id);
+  assert.ok(conteudo.equals(PNG), 'o comprovante voltou');
+  assert.equal(arm.caminhos().includes(objetoAntigo), false, 'o objeto antigo foi apagado depois do commit');
+  assert.equal(arm.caminhos().length, 1);
+  assert.match(arm.caminhos()[0], new RegExp(`^${id}/`));
+});
+
+test('restaurar: sequências não voltam atrás, então o próximo lançamento não colide com os restaurados', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db, conta } = await usuarioPopulado(arm);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+  await restaurarBackup(banco, arm, id, backup);
+  const nova = await novaMov(db, { conta_id: conta.id, valor_centavos: 1, descricao: 'Depois da restauração' });
+  const maiorDoBackup = Math.max(...backup.dados.movimentacoes.map((m) => m.id));
+  assert.ok(nova.id > maiorDoBackup);
+});
+
+test('restaurar: não mexe nos dados de outro usuário', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id } = await usuarioPopulado(arm);
+  const outra = await usuarioPopulado(arm);
+  const antesDela = { contagens: await contagens(outra.db), saldos: await saldos(outra.db) };
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+
+  await restaurarBackup(banco, arm, id, backup);
+
+  assert.deepEqual(await contagens(outra.db), antesDela.contagens);
+  assert.deepEqual(await saldos(outra.db), antesDela.saldos);
+  const [anexo] = await listarAnexos(outra.db, (await outra.db.um('SELECT id FROM movimentacoes WHERE usuario_id = :u', [])).id);
+  assert.ok(await arm.ler((await outra.db.um('SELECT caminho_storage FROM anexos WHERE id = ? AND usuario_id = :u', [anexo.id])).caminho_storage));
+});
+
+test('restaurar: id que já existe em outro usuário aborta tudo, sem trocar nada e sem deixar objeto órfão', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db } = await usuarioPopulado(arm);
+  const backupDele = await montarBackup(banco, arm, id, CTX.agora);
+  const destino = await usuarioPopulado(arm); // outro usuário no mesmo banco: os ids do backup já são do primeiro
+  const antes = await contagens(destino.db);
+  const objetos = arm.caminhos().length;
+
+  await assert.rejects(async () => await restaurarBackup(banco, arm, destino.id, backupDele));
+
+  assert.deepEqual(await contagens(destino.db), antes, 'nada foi apagado do destino');
+  assert.equal(arm.caminhos().length, objetos, 'o comprovante enviado antes foi desfeito');
+  assert.equal((await contagens(db)).contas, 1);
+});
+
+test('restaurar: esquema diferente e arquivo que não é do sistema são recusados antes de tocar em qualquer coisa', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db } = await usuarioPopulado(arm);
+  const antes = await contagens(db);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+
+  await assert.rejects(
+    async () => await restaurarBackup(banco, arm, id, { ...backup, versao_do_esquema: '000_antigo.sql' }),
+    /versão de esquema 000_antigo\.sql/,
   );
-const saldos = (db) => listarContas(db).map((c) => [c.nome, c.saldo_centavos]);
+  await assert.rejects(async () => await restaurarBackup(banco, arm, id, { qualquer: 1 }), /não é um backup/);
+  await assert.rejects(async () => await restaurarBackup(banco, arm, id, null), /não é um backup/);
+  assert.deepEqual(await contagens(db), antes);
+});
 
-test('backup: gera um arquivo íntegro e completo, com o banco aberto e em uso', async (t) => {
-  const pasta = pastaTemporaria(t);
-  const db = await bancoPopulado(join(pasta, 'data', 'tracker.db'));
+test('restaurar: comprovante sem arquivo no backup fica registrado como removido e conta em semArquivo', async () => {
+  const arm = criarArmazenamentoMemoria();
+  const { id, db } = await usuarioPopulado(arm);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+  backup.arquivos = {};
+  const resultado = await restaurarBackup(banco, arm, id, backup);
+  assert.equal(resultado.semArquivo, 1);
+  assert.equal(resultado.comprovantes, 0);
+  const linha = await db.um('SELECT caminho_storage, excluido_em FROM anexos WHERE usuario_id = :u', []);
+  assert.equal(linha.caminho_storage, null);
+  assert.ok(linha.excluido_em);
+  assert.equal(arm.caminhos().length, 0);
+});
 
-  const destino = await fazerBackup(db, 'tracker', join(pasta, 'backups'));
+test('backup em arquivo: nome com usuário e carimbo, permissão restrita e conteúdo íntegro', async (t) => {
+  const pasta = mkdtempSync(join(tmpdir(), 'tracker-backup-'));
+  t.after(() => rmSync(pasta, { recursive: true, force: true, maxRetries: 30, retryDelay: 100 }));
+  const arm = criarArmazenamentoMemoria();
+  const { id } = await usuarioPopulado(arm);
+  const backup = await montarBackup(banco, arm, id, CTX.agora);
+
+  const destino = gravarBackup(backup, 'maria', join(pasta, 'backups'));
   assert.ok(existsSync(destino));
-  assert.match(destino, /tracker-\d{4}-\d{2}-\d{2}_\d{6}\.db$/);
-  conferirBackup(destino); // não lança
-
-  const copia = abrir(destino);
-  assert.deepEqual(contagens(copia), contagens(db));
-  assert.deepEqual(saldos(copia), saldos(db));
-  copia.close();
-});
-
-test('restaurar: volta exatamente ao estado do backup, guarda o banco atual e mantém a senha', async (t) => {
-  const pasta = pastaTemporaria(t);
-  const caminho = join(pasta, 'data', 'tracker.db');
-  const pastaBackups = join(pasta, 'backups');
-  const db = await bancoPopulado(caminho);
-  const backup = await fazerBackup(db, 'tracker', pastaBackups);
-  const antes = { contagens: contagens(db), saldos: saldos(db) };
-
-  // Depois do backup o usuário "estraga" tudo: novo lançamento e conta nova.
-  const extra = novaConta(db, 'Conta que não existia no backup', 5);
-  novaMov(db, { conta_id: extra.id, valor_centavos: 777 });
-  assert.notDeepEqual(contagens(db), antes.contagens);
-  db.close();
-
-  const guardada = await restaurarBanco({ origem: backup, caminhoBanco: caminho, pastaBackups });
-  assert.match(guardada, /antes-de-restaurar-.*\.db$/);
-
-  const restaurado = abrir(caminho);
-  assert.deepEqual(contagens(restaurado), antes.contagens);
-  assert.deepEqual(saldos(restaurado), antes.saldos);
-  assert.equal(restaurado.pragma('integrity_check', { simple: true }), 'ok');
-  assert.equal(await conferirSenha(restaurado, 'senha-de-teste-123'), true);
-
-  // A cópia de segurança do estado "estragado" existe e tem o que foi perdido.
-  const seguranca = abrir(guardada);
-  assert.ok(listarContas(seguranca).some((c) => c.nome === 'Conta que não existia no backup'));
-  seguranca.close();
-});
-
-test('restaurar: um backup de esquema antigo é aceito e o migrar o atualiza sem perder dados', async (t) => {
-  const pasta = pastaTemporaria(t);
-  const antigo = join(pasta, 'migrations-antigas');
-  mkdirSync(antigo);
-  const todas = new URL('../servidor/banco/migrations/', import.meta.url);
-  for (const f of readdirSync(todas).filter((n) => /^00[123]_/.test(n))) {
-    copyFileSync(new URL(f, todas), join(antigo, f));
-  }
-
-  const caminho = join(pasta, 'data', 'tracker.db');
-  const velho = abrir(join(pasta, 'velho.db'));
-  migrar(velho, antigo); // só as migrations 001 a 003
-  semearPadroes(velho);
-  // Direto no SQL: o código atual já lê e grava tabelas e colunas que o esquema antigo não tem.
-  const conta = {
-    id: Number(
-      velho
-        .prepare(
-          `INSERT INTO contas (nome, tipo, saldo_inicial_centavos, criada_em, atualizada_em)
-           VALUES ('Corrente', 'corrente', 1234, 'a', 'a')`,
-        )
-        .run().lastInsertRowid,
-    ),
-  };
-  velho
-    .prepare(
-      `INSERT INTO movimentacoes (tipo, descricao, valor_centavos, conta_id, data_competencia, data_liquidacao, status,
-         criada_em, atualizada_em)
-       VALUES ('despesa', 'Antiga', 100, ?, '2026-06-10', '2026-06-10', 'liquidada', 'a', 'a')`,
-    )
-    .run(conta.id);
-  velho.close();
-
-  await restaurarBanco({ origem: join(pasta, 'velho.db'), caminhoBanco: caminho, pastaBackups: join(pasta, 'backups') });
-  const db = abrir(caminho);
-  assert.equal(db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'recorrencias'").get(), undefined);
-  assert.deepEqual(migrar(db), ['004_compromissos.sql', '005_planejamento.sql', '006_dividas_assinaturas.sql', '007_investimentos.sql', '008_anexos_importacao.sql', '009_moedas.sql', '010_padroes_e_tipos_de_conta.sql']);
-  assert.deepEqual(saldos(db), [['Corrente', 1234 - 100]]);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM recorrencias').get().n, 0);
-});
-
-test('restaurar: arquivo que não é do sistema ou não é um banco é recusado e o banco atual fica intacto', async (t) => {
-  const pasta = pastaTemporaria(t);
-  const caminho = join(pasta, 'data', 'tracker.db');
-  const db = await bancoPopulado(caminho);
-  const antes = contagens(db);
-  db.close();
-  const pastaBackups = join(pasta, 'backups');
-
-  const outro = abrir(join(pasta, 'outro.db'));
-  outro.exec('CREATE TABLE qualquer (x)');
-  outro.close();
-  await assert.rejects(restaurarBanco({ origem: join(pasta, 'outro.db'), caminhoBanco: caminho, pastaBackups }), /não é um backup/);
-
-  writeFileSync(join(pasta, 'lixo.db'), 'isto não é um banco sqlite, é só texto suficiente para ter mais de cem bytes '.repeat(5));
-  await assert.rejects(restaurarBanco({ origem: join(pasta, 'lixo.db'), caminhoBanco: caminho, pastaBackups }));
-
-  assert.ok(!existsSync(pastaBackups), 'nada foi guardado porque nada foi trocado');
-  const intacto = abrir(caminho);
-  assert.deepEqual(contagens(intacto), antes);
-  intacto.close();
-  assert.ok(readFileSync(caminho).length > 0);
-});
-
-test('restaurar: sem banco atual (instalação nova) só copia o backup', async (t) => {
-  const pasta = pastaTemporaria(t);
-  const origemDb = await bancoPopulado(join(pasta, 'origem.db'));
-  const backup = await fazerBackup(origemDb, 'tracker', join(pasta, 'backups'));
-  origemDb.close();
-
-  const destino = join(pasta, 'novo', 'tracker.db');
-  mkdirSync(join(pasta, 'novo'));
-  const guardada = await restaurarBanco({ origem: backup, caminhoBanco: destino, pastaBackups: join(pasta, 'backups') });
-  assert.equal(guardada, null);
-  const db = abrir(destino);
-  assert.equal(listarContas(db).length, 1);
-  db.close();
+  assert.match(destino, /maria-\d{4}-\d{2}-\d{2}_\d{6}\.json$/);
+  assert.match(carimbo(new Date(2026, 5, 15, 9, 8, 7)), /^2026-06-15_090807$/);
+  if (process.platform !== 'win32') assert.equal(statSync(destino).mode & 0o077, 0, 'só o dono lê');
+  assert.deepEqual(JSON.parse(readFileSync(destino, 'utf8')).dados.contas.length, 1);
 });

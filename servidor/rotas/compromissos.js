@@ -13,43 +13,55 @@ import { naoEncontrado } from '../erros.js';
 import { contextoDeEscrita, garantirOcorrencias, idDe } from './util.js';
 
 export async function rotasCompromissos(app) {
-  const { db } = app;
-
   // Contas a pagar (despesas) e a receber (receitas) pendentes. Liquidar e reabrir seguem em /api/movimentacoes.
   app.get('/api/compromissos', async (request) => {
-    const ctx = garantirOcorrencias(db);
-    return listarCompromissos(db, esquemaFiltrosCompromissos.parse(request.query), ctx.hoje);
+    const ctx = await garantirOcorrencias(request.esc);
+    return listarCompromissos(request.esc, esquemaFiltrosCompromissos.parse(request.query), ctx.hoje);
   });
 
   app.post('/api/compromissos/:id/baixa-parcial', async (request) =>
-    baixarParcial(db, idDe(request), esquemaBaixaParcial.parse(request.body), contextoDeEscrita(db)),
+    baixarParcial(
+      request.esc,
+      idDe(request),
+      esquemaBaixaParcial.parse(request.body),
+      await contextoDeEscrita(request.esc),
+    ),
   );
 
   app.post('/api/compromissos/:id/reagendar', async (request) =>
-    reagendar(db, idDe(request), esquemaReagendar.parse(request.body), contextoDeEscrita(db)),
+    reagendar(request.esc, idDe(request), esquemaReagendar.parse(request.body), await contextoDeEscrita(request.esc)),
   );
 
-  app.get('/api/recorrencias', async () => {
-    garantirOcorrencias(db);
-    return { itens: listarRecorrencias(db) };
+  app.get('/api/recorrencias', async (request) => {
+    await garantirOcorrencias(request.esc);
+    return { itens: await listarRecorrencias(request.esc) };
   });
 
   app.get('/api/recorrencias/:id', async (request) => {
-    const r = obterRecorrencia(db, idDe(request));
+    const r = await obterRecorrencia(request.esc, idDe(request));
     if (!r) throw naoEncontrado('Recorrência');
     return r;
   });
 
   app.post('/api/recorrencias', async (request, reply) =>
-    reply.code(201).send(criarRecorrencia(db, esquemaRecorrencia.parse(request.body), contextoDeEscrita(db))),
+    reply
+      .code(201)
+      .send(
+        await criarRecorrencia(request.esc, esquemaRecorrencia.parse(request.body), await contextoDeEscrita(request.esc)),
+      ),
   );
 
   app.put('/api/recorrencias/:id', async (request) =>
-    atualizarRecorrencia(db, idDe(request), esquemaRecorrencia.parse(request.body), contextoDeEscrita(db)),
+    atualizarRecorrencia(
+      request.esc,
+      idDe(request),
+      esquemaRecorrencia.parse(request.body),
+      await contextoDeEscrita(request.esc),
+    ),
   );
 
   app.delete('/api/recorrencias/:id', async (request, reply) => {
-    excluirRecorrencia(db, idDe(request), contextoDeEscrita(db));
+    await excluirRecorrencia(request.esc, idDe(request), await contextoDeEscrita(request.esc));
     return reply.code(204).send();
   });
 }

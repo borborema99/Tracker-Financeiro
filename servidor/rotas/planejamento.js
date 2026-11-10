@@ -14,47 +14,61 @@ import { naoEncontrado } from '../erros.js';
 import { contextoDeEscrita, hojeDe, idDe } from './util.js';
 
 export async function rotasPlanejamento(app) {
-  const { db } = app;
-
   // Orçamento do mês (padrão: mês atual): limites, realizado, previsto e o que ficou sem orçamento.
   app.get('/api/orcamento', async (request) => {
     const { mes } = esquemaMes.parse(request.query);
-    return orcamentoDoMes(db, mes ?? hojeDe(db).slice(0, 7));
+    return orcamentoDoMes(request.esc, mes ?? (await hojeDe(request.esc)).slice(0, 7));
   });
 
   // O id é o da categoria principal. Limite 0 tira o orçamento daquele mês em diante.
   app.put('/api/orcamento/:id', async (request) =>
-    definirLimite(db, idDe(request), esquemaLimiteOrcamento.parse(request.body), contextoDeEscrita(db)),
+    definirLimite(
+      request.esc,
+      idDe(request),
+      esquemaLimiteOrcamento.parse(request.body),
+      await contextoDeEscrita(request.esc),
+    ),
   );
 
-  app.get('/api/metas', async () => ({ itens: listarMetas(db, hojeDe(db)) }));
+  app.get('/api/metas', async (request) => ({ itens: await listarMetas(request.esc, await hojeDe(request.esc)) }));
 
   app.get('/api/metas/:id', async (request) => {
-    const meta = obterMeta(db, idDe(request), hojeDe(db));
+    const meta = await obterMeta(request.esc, idDe(request), await hojeDe(request.esc));
     if (!meta) throw naoEncontrado('Meta');
     return meta;
   });
 
   app.post('/api/metas', async (request, reply) =>
-    reply.code(201).send(criarMeta(db, esquemaMeta.parse(request.body), contextoDeEscrita(db))),
+    reply
+      .code(201)
+      .send(await criarMeta(request.esc, esquemaMeta.parse(request.body), await contextoDeEscrita(request.esc))),
   );
 
   app.put('/api/metas/:id', async (request) =>
-    atualizarMeta(db, idDe(request), esquemaMeta.parse(request.body), contextoDeEscrita(db)),
+    atualizarMeta(request.esc, idDe(request), esquemaMeta.parse(request.body), await contextoDeEscrita(request.esc)),
   );
 
   app.delete('/api/metas/:id', async (request, reply) => {
-    excluirMeta(db, idDe(request), contextoDeEscrita(db));
+    await excluirMeta(request.esc, idDe(request), await contextoDeEscrita(request.esc));
     return reply.code(204).send();
   });
 
   app.post('/api/metas/:id/aportes', async (request, reply) =>
-    reply.code(201).send(registrarAporte(db, idDe(request), esquemaAporte.parse(request.body), contextoDeEscrita(db))),
+    reply
+      .code(201)
+      .send(
+        await registrarAporte(
+          request.esc,
+          idDe(request),
+          esquemaAporte.parse(request.body),
+          await contextoDeEscrita(request.esc),
+        ),
+      ),
   );
 
   app.delete('/api/metas/:id/aportes/:aporteId', async (request) => {
     const aporteId = Number(request.params.aporteId);
-    if (!Number.isInteger(aporteId) || aporteId <= 0) throw naoEncontrado('Aporte');
-    return excluirAporte(db, idDe(request), aporteId, contextoDeEscrita(db));
+    if (!Number.isSafeInteger(aporteId) || aporteId <= 0) throw naoEncontrado('Aporte');
+    return excluirAporte(request.esc, idDe(request), aporteId, await contextoDeEscrita(request.esc));
   });
 }

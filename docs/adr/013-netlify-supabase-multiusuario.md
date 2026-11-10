@@ -52,11 +52,25 @@
 | `typescript-eslint` | dev | regras de lint para `.ts` e `.tsx` (ver pendência abaixo) |
 | `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` | dev | testes do front |
 
+Removidas na Onda 1: `better-sqlite3` (o banco agora é Postgres) e `qrcode-terminal` (só servia ao `iniciar:rede`, que saiu). Nenhuma dependência nova na Onda 1.
+
 `npm audit --omit=dev` não aponta nada; os 7 avisos moderados são de desenvolvimento, na cadeia do `typescript-eslint`.
 
 ## Consequências e pendências
 
-- **Os testes atuais seguem em SQLite até a Onda 1.** Trocar a camada de dados exige repositórios assíncronos; fazer isso fora da Onda 1 deixaria a suíte quebrada no meio. Na Onda 0 entraram a base de testes em PGlite (`tests/pg-ajuda.js`) e os testes do esquema, do runner, dos tipos e do driver. Na Onda 1 os repositórios viram assíncronos e os testes `rf-*` e de API passam a rodar em PGlite; a contagem só pode subir.
-- Cada teste que abre um PGlite e migra leva cerca de 1,7 s. Na Onda 1, abrir um banco migrado por arquivo de teste (e limpar entre testes), em vez de um por teste.
-- `eslint.config.js` ainda não lê `.ts` e `.tsx`: o hook de proteção de configuração do ambiente impediu a edição. Até lá o `tsc` estrito cobre os tipos, e o `lint` ignora `frontend/dist/` pelo script. O trecho a aplicar está no relatório da Onda 0.
-- O código SQLite (`better-sqlite3`, `servidor/banco/migrations/`, `web/`) sai na Onda 5.
+- **Onda 1 feita:** repositórios e rotas assíncronos, todos sobre o escopo do usuário; a suíte inteira roda em PGlite. Cada arquivo de teste abre um PGlite e migra uma vez; cada teste roda dentro de uma transação desfeita no fim (`tests/ajuda.js`), com `SAVEPOINT` por comando.
+- `eslint.config.js` ainda não lê `.ts` e `.tsx` (nem `.mjs`): o hook de proteção de configuração do ambiente impede a edição. Até lá o `tsc` estrito cobre os tipos do front e as funções `.mjs` declaram os globais no próprio arquivo. O trecho a aplicar está no relatório da Onda 0.
+- O código SQLite (`better-sqlite3`, `servidor/banco/conexao.js`, `servidor/banco/migrar.js`, `servidor/banco/migrations/`, `scripts/iniciar-rede.js`, `scripts/lib/restauracao.js`) saiu na Onda 1, junto com as dependências `better-sqlite3` e `qrcode-terminal`. Só o front legado `web/` sai na Onda 5; até lá o login dele não funciona (a API agora pede `usuario` e `senha`).
+
+## Onda 1: decisões e limites
+
+- **`app.inject` na função: viável.** O corpo cru dos anexos e do OFX passa como `Buffer`; vários `Set-Cookie` voltam como cabeçalhos separados; o IP vem de `context.ip` e o `x-forwarded-for` recebido é descartado (`tests/netlify-funcao.test.js`). A função não roda migrations: quem migra é `npm run setup`, contra o banco da hospedagem. **Limite real:** função síncrona do Netlify aceita requisição e resposta de ~6 MB. Comprovantes de até 5 MB cabem (o corpo vai cru, sem base64), mas com pouca folga; o limite de 5 MB do produto não deve subir.
+- **Escopo do usuário.** Toda consulta passa por `criarEscopo(banco, usuarioId)` (`servidor/banco/pg/escopo.js`), com `usuario_id = :u` no SQL. O manipulador de erros trata `23503` (chave estrangeira) como 404 e `23505` como 409, como rede de proteção das chaves compostas. Id de outra conta em campo do corpo vira o mesmo erro de campo (400, "não encontrada") de um id que não existe; em caminho de URL, 404. `tests/isolamento.test.js` compara, rota a rota, o pedido com id alheio e com id inexistente (a resposta tem de ser idêntica) e exige que toda rota com `:id` esteja na tabela.
+- **Bloqueio de login.** Janela de 15 minutos; o 5º erro bloqueia por 15 minutos e responde 429 com `Retry-After`. Conta por usuário e por IP. Acertar a senha zera só a chave do usuário (a do IP segue contando). Trocar a senha com a atual errada conta como erro de login.
+- **Senha.** scrypt sobre `HMAC-SHA256(pepper, senha)`. Para usuário inexistente se compara contra um hash falso, para o tempo não revelar quem existe. Trocar a senha encerra as outras sessões; `redefinir-senha` encerra todas e limpa o bloqueio.
+- **Excluir a conta** exige digitar o nome de usuário **e** a senha (mais estrito que o pedido, que só pedia a exclusão). Apaga tudo por `ON DELETE CASCADE` e depois os comprovantes do Storage; se o Storage falhar, a conta já foi apagada e os caminhos órfãos são devolvidos.
+- **Comprovantes.** Sobe-se o arquivo primeiro e grava-se o registro depois, apagando o objeto se o banco falhar. Remover apaga o registro (lógico) primeiro e o objeto depois, sem falhar se o Storage estiver fora. Local: `data/anexos`. Testes: memória.
+- **Backup e restauração (um usuário, JSON).** `npm run backup -- <usuario>` leva os dados e os comprovantes em base64; `npm run restaurar -- <usuario> <arquivo> [--sim]` substitui os dados do usuário numa transação, depois de guardar um backup do estado atual. Exige a **mesma versão de esquema**. Os ids originais são mantidos: restaurar no mesmo banco é seguro; restaurar em **outro** banco, se algum id já existir, desfaz tudo e avisa. Achado pelo teste: a ordem das tabelas da cópia tinha `movimentacoes` antes de `recorrencias` e `dividas`, que ela referencia; a ordem foi corrigida.
+- **O índice `idx_mov_valor` do SQLite não foi levado:** toda consulta filtra antes por `usuario_id`, e os demais índices já começam por ele.
+- **Demonstração.** `npm run demo` sobe sempre um PGlite local próprio (`data/pglite-demo`, porta 3100), nunca o banco configurado; o usuário `demo` é o único com a faixa de dados de demonstração.
+- **Cadastro** sem limite de taxa: mantenha `CADASTRO_ABERTO=0` fora de um período de convites.

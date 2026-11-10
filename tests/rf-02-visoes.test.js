@@ -7,27 +7,27 @@ import { HOST, appDeTeste, entrar, bancoComPadroes, novaConta, novaMov } from '.
 
 const JUNHO = { de: '2026-06-01', ate: '2026-06-30' };
 
-function cenario(db) {
-  const c = novaConta(db);
-  novaMov(db, { tipo: 'receita', valor_centavos: 100000, conta_id: c.id, data_liquidacao: '2026-06-05' });
-  novaMov(db, { tipo: 'despesa', valor_centavos: 30000, conta_id: c.id, data_liquidacao: '2026-06-06' });
-  novaMov(db, { tipo: 'despesa', valor_centavos: 7000, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-20' });
-  novaMov(db, { tipo: 'receita', valor_centavos: 2500, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-25' });
+async function cenario(db) {
+  const c = await novaConta(db);
+  await novaMov(db, { tipo: 'receita', valor_centavos: 100000, conta_id: c.id, data_liquidacao: '2026-06-05' });
+  await novaMov(db, { tipo: 'despesa', valor_centavos: 30000, conta_id: c.id, data_liquidacao: '2026-06-06' });
+  await novaMov(db, { tipo: 'despesa', valor_centavos: 7000, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-20' });
+  await novaMov(db, { tipo: 'receita', valor_centavos: 2500, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-25' });
   return c;
 }
 
-test('RF-02: realizado e previsto vêm separados e cada movimentação está em uma só visão', () => {
-  const db = bancoComPadroes();
-  cenario(db);
-  const r = resumoDoPeriodo(movimentacoesDoPeriodo(db, JUNHO.de, JUNHO.ate), JUNHO);
+test('RF-02: realizado e previsto vêm separados e cada movimentação está em uma só visão', async () => {
+  const db = await bancoComPadroes();
+  await cenario(db);
+  const r = resumoDoPeriodo(await movimentacoesDoPeriodo(db, JUNHO.de, JUNHO.ate), JUNHO);
   assert.deepEqual(r.realizado, { receitas: 100000, despesas: 30000, resultado: 70000 });
   assert.deepEqual(r.previsto, { receitas: 2500, despesas: 7000 });
 });
 
-test('RF-02: o resumo não tem nenhum total que misture realizado com previsto', () => {
-  const db = bancoComPadroes();
-  cenario(db);
-  const r = resumoDoPeriodo(movimentacoesDoPeriodo(db, JUNHO.de, JUNHO.ate), JUNHO);
+test('RF-02: o resumo não tem nenhum total que misture realizado com previsto', async () => {
+  const db = await bancoComPadroes();
+  await cenario(db);
+  const r = resumoDoPeriodo(await movimentacoesDoPeriodo(db, JUNHO.de, JUNHO.ate), JUNHO);
   assert.deepEqual(Object.keys(r).sort(), ['previsto', 'realizado']);
   assert.deepEqual(Object.keys(r.previsto).sort(), ['despesas', 'receitas']);
 });
@@ -39,10 +39,10 @@ test('RF-02: previsto usa o vencimento (ou a competência, se não houver) e som
   assert.equal(resumoPrevisto(fora, JUNHO.de, JUNHO.ate).despesas, 0);
 });
 
-test('RF-02: totais da listagem também separam as duas visões', () => {
-  const db = bancoComPadroes();
-  cenario(db);
-  const { totais } = listarMovimentacoes(db, esquemaFiltros.parse({}));
+test('RF-02: totais da listagem também separam as duas visões', async () => {
+  const db = await bancoComPadroes();
+  await cenario(db);
+  const { totais } = await listarMovimentacoes(db, esquemaFiltros.parse({}));
   assert.deepEqual(Object.keys(totais).sort(), ['previsto', 'realizado']);
   assert.equal(totais.realizado.resultado, 70000);
   assert.equal(totais.previsto.despesas, 7000);
@@ -52,9 +52,9 @@ test('RF-02: totais da listagem também separam as duas visões', () => {
 test('RF-02: GET /api/resumo devolve saldos, realizado e previsto em blocos separados', async (t) => {
   const { app, db, fechar } = await appDeTeste();
   t.after(fechar);
-  const c = novaConta(db, 'Corrente', 1000);
-  novaMov(db, { tipo: 'receita', valor_centavos: 500, conta_id: c.id, data_liquidacao: '2026-06-05' });
-  novaMov(db, { tipo: 'despesa', valor_centavos: 200, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-20' });
+  const c = await novaConta(db, 'Corrente', 1000);
+  await novaMov(db, { tipo: 'receita', valor_centavos: 500, conta_id: c.id, data_liquidacao: '2026-06-05' });
+  await novaMov(db, { tipo: 'despesa', valor_centavos: 200, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-20' });
   const { cookie } = await entrar(app);
   const res = await app.inject({ method: 'GET', url: '/api/resumo?mes=2026-06', headers: { host: HOST, cookie } });
   assert.equal(res.statusCode, 200);

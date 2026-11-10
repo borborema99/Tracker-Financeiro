@@ -89,11 +89,11 @@ test('exportar lançamentos: respeita os filtros da tela e valida a query', asyn
 test('exportar lançamentos: passa de 100 itens (várias páginas) sem perder nenhum', async (t) => {
   const { chamar, db } = await sessao(t);
   const conta = (await chamar('POST', '/api/contas', { nome: 'Corrente', tipo: 'corrente', saldo_inicial_centavos: 0 })).json();
-  const inserir = db.prepare(
-    `INSERT INTO movimentacoes (tipo, descricao, valor_centavos, conta_id, data_competencia, data_liquidacao, status, criada_em, atualizada_em)
-     VALUES ('despesa', ?, 100, ?, ?, ?, 'liquidada', 'a', 'a')`,
+  await db.rodar(
+    `INSERT INTO movimentacoes (usuario_id, tipo, descricao, valor_centavos, conta_id, data_competencia, data_liquidacao, status, criada_em, atualizada_em)
+     SELECT :u, 'despesa', 'Item ' || n, 100, ?, ?::date, ?::date, 'liquidada', now(), now() FROM generate_series(0, 229) AS n`,
+    [conta.id, hoje(), hoje()],
   );
-  for (let i = 0; i < 230; i++) inserir.run(`Item ${i}`, conta.id, hoje(), hoje());
   const res = await chamar('GET', '/api/exportar/lancamentos.csv');
   assert.equal(res.body.slice(1).trimEnd().split('\r\n').length, 231);
 });

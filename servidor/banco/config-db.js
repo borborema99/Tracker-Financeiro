@@ -1,9 +1,13 @@
-export function lerConfig(db, chave) {
-  return db.prepare('SELECT valor FROM config WHERE chave = ?').get(chave)?.valor ?? null;
+/** Configuração do usuário do escopo (fuso, preferências). Cada usuário tem a sua. */
+export async function lerConfig(esc, chave) {
+  const linha = await esc.um('SELECT valor FROM config WHERE usuario_id = :u AND chave = ?', [chave]);
+  return linha?.valor ?? null;
 }
 
-export function gravarConfig(db, chave, valor) {
-  db.prepare(
-    'INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor',
-  ).run(chave, valor);
+export async function gravarConfig(esc, chave, valor) {
+  await esc.rodar(
+    `INSERT INTO config (usuario_id, chave, valor) VALUES (:u, ?, ?)
+     ON CONFLICT (usuario_id, chave) DO UPDATE SET valor = excluded.valor`,
+    [chave, valor],
+  );
 }

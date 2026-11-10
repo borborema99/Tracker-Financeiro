@@ -58,17 +58,17 @@ test('RF-14: o percentual é calculado em centavos e pode passar de 100 quando s
   assert.equal(progressoDaMeta(meta(), [], HOJE).percentual, 0);
 });
 
-test('RF-14: a lista põe atrasadas e em andamento antes das concluídas, e o resumo só conta as abertas', () => {
-  const db = bancoComPadroes();
-  const nova = (nome, alvo, prazo) => criarMeta(db, { nome, valor_alvo_centavos: alvo, prazo, observacao: '' }, CTX);
-  const pronta = nova('Concluída', 1000, null);
-  registrarAporte(db, pronta.id, { tipo: 'aporte', valor_centavos: 1000, data: '2026-06-01', observacao: '' }, CTX);
-  nova('Viagem', 500000, '2026-12-31');
-  nova('Atrasada', 200000, '2026-05-31');
-  nova('Sem prazo', 300000, null);
+test('RF-14: a lista põe atrasadas e em andamento antes das concluídas, e o resumo só conta as abertas', async () => {
+  const db = await bancoComPadroes();
+  const nova = async (nome, alvo, prazo) => await criarMeta(db, { nome, valor_alvo_centavos: alvo, prazo, observacao: '' }, CTX);
+  const pronta = await nova('Concluída', 1000, null);
+  await registrarAporte(db, pronta.id, { tipo: 'aporte', valor_centavos: 1000, data: '2026-06-01', observacao: '' }, CTX);
+  await nova('Viagem', 500000, '2026-12-31');
+  await nova('Atrasada', 200000, '2026-05-31');
+  await nova('Sem prazo', 300000, null);
 
-  assert.deepEqual(listarMetas(db, CTX.hoje).map((m) => m.nome), ['Atrasada', 'Viagem', 'Sem prazo', 'Concluída']);
-  const resumo = resumoDeMetas(db, CTX.hoje);
+  assert.deepEqual((await listarMetas(db, CTX.hoje)).map((m) => m.nome), ['Atrasada', 'Viagem', 'Sem prazo', 'Concluída']);
+  const resumo = await resumoDeMetas(db, CTX.hoje);
   assert.equal(resumo.abertas, 3);
   assert.equal(resumo.atrasadas, 1);
   assert.equal(resumo.alvo_centavos, 1000000);

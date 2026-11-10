@@ -31,32 +31,32 @@ test('RF-30: vale a cotação mais recente até hoje, da própria moeda; no mesm
   assert.equal(cotacaoVigente(cotacoes, 'USD', '2026-05-01'), null);
 });
 
-test('RF-30: sem cotação não há valor em reais (null, não zero); com cotação o valor é saldo × taxa', () => {
-  const db = bancoComPadroes();
-  const c = criarContaMoeda(db, dolar, CTX);
-  const comSaldo = registrarOperacaoMoeda(db, c.id, deposito, CTX);
+test('RF-30: sem cotação não há valor em reais (null, não zero); com cotação o valor é saldo × taxa', async () => {
+  const db = await bancoComPadroes();
+  const c = await criarContaMoeda(db, dolar, CTX);
+  const comSaldo = await registrarOperacaoMoeda(db, c.id, deposito, CTX);
   assert.equal(comSaldo.cotacao, null);
   assert.equal(comSaldo.valor_brl_centavos, null);
 
-  registrarCotacao(db, cot(), CTX);
-  const convertida = obterContaMoeda(db, c.id, CTX.hoje);
+  await registrarCotacao(db, cot(), CTX);
+  const convertida = await obterContaMoeda(db, c.id, CTX.hoje);
   assert.equal(convertida.valor_brl_centavos, 55000);
   assert.deepEqual(convertida.cotacao, { taxa_micros: 5500000, data: '2026-06-10' });
 
-  registrarCotacao(db, cot({ data: '2026-06-12', taxa_micros: 5600000 }), CTX);
-  assert.equal(obterContaMoeda(db, c.id, CTX.hoje).valor_brl_centavos, 56000);
+  await registrarCotacao(db, cot({ data: '2026-06-12', taxa_micros: 5600000 }), CTX);
+  assert.equal((await obterContaMoeda(db, c.id, CTX.hoje)).valor_brl_centavos, 56000);
 });
 
-test('RF-30: cotação repetida na mesma data e cotação futura são recusadas; excluir volta à anterior', () => {
-  const db = bancoComPadroes();
-  registrarCotacao(db, cot(), CTX);
-  assert.throws(() => registrarCotacao(db, cot({ taxa_micros: 5700000 }), CTX), (e) => e.statusCode === 409);
-  assert.throws(() => registrarCotacao(db, cot({ data: '2026-06-16' }), CTX), (e) => e.statusCode === 400);
-  const depois = registrarCotacao(db, cot({ data: '2026-06-12', taxa_micros: 5600000 }), CTX);
+test('RF-30: cotação repetida na mesma data e cotação futura são recusadas; excluir volta à anterior', async () => {
+  const db = await bancoComPadroes();
+  await registrarCotacao(db, cot(), CTX);
+  await assert.rejects(async () => await registrarCotacao(db, cot({ taxa_micros: 5700000 }), CTX), (e) => e.statusCode === 409);
+  await assert.rejects(async () => await registrarCotacao(db, cot({ data: '2026-06-16' }), CTX), (e) => e.statusCode === 400);
+  const depois = await registrarCotacao(db, cot({ data: '2026-06-12', taxa_micros: 5600000 }), CTX);
   assert.equal(depois.length, 2);
-  excluirCotacao(db, depois[0].id, CTX);
-  assert.deepEqual(listarCotacoes(db).map((c) => c.data), ['2026-06-10']);
-  assert.throws(() => excluirCotacao(db, 9999, CTX), (e) => e.statusCode === 404);
+  await excluirCotacao(db, depois[0].id, CTX);
+  assert.deepEqual((await listarCotacoes(db)).map((c) => c.data), ['2026-06-10']);
+  await assert.rejects(async () => await excluirCotacao(db, 9999, CTX), (e) => e.statusCode === 404);
 });
 
 test('RF-30: totais somam só o que tem cotação e contam o resto; conta sem saldo não aparece', () => {
@@ -73,20 +73,20 @@ test('RF-30: totais somam só o que tem cotação e contam o resto; conta sem sa
   );
 });
 
-test('RF-30 (RF-21): o patrimônio soma a moeda convertida; sem cotação ela fica de fora com aviso, nunca como zero', () => {
-  const db = bancoComPadroes();
-  novaConta(db, 'Conta A', 500000);
-  assert.equal(calcularPatrimonioAtual(db, CTX.hoje).patrimonio.ativos.moedas_centavos, undefined, 'sem módulo, sem parte');
+test('RF-30 (RF-21): o patrimônio soma a moeda convertida; sem cotação ela fica de fora com aviso, nunca como zero', async () => {
+  const db = await bancoComPadroes();
+  await novaConta(db, 'Conta A', 500000);
+  assert.equal((await calcularPatrimonioAtual(db, CTX.hoje)).patrimonio.ativos.moedas_centavos, undefined, 'sem módulo, sem parte');
 
-  const c = criarContaMoeda(db, dolar, CTX);
-  registrarOperacaoMoeda(db, c.id, deposito, CTX);
-  const sem = calcularPatrimonioAtual(db, CTX.hoje).patrimonio;
+  const c = await criarContaMoeda(db, dolar, CTX);
+  await registrarOperacaoMoeda(db, c.id, deposito, CTX);
+  const sem = (await calcularPatrimonioAtual(db, CTX.hoje)).patrimonio;
   assert.equal(sem.ativos.moedas_centavos, undefined);
   assert.equal(sem.moedas_sem_cotacao, 1);
   assert.equal(sem.patrimonio_liquido_centavos, 500000);
 
-  registrarCotacao(db, cot(), CTX);
-  const com = calcularPatrimonioAtual(db, CTX.hoje).patrimonio;
+  await registrarCotacao(db, cot(), CTX);
+  const com = (await calcularPatrimonioAtual(db, CTX.hoje)).patrimonio;
   assert.equal(com.ativos.moedas_centavos, 55000);
   assert.equal(com.moedas_sem_cotacao, undefined);
   assert.equal(com.patrimonio_liquido_centavos, 555000);

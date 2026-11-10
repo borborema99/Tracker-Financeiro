@@ -148,8 +148,10 @@ test('API: escrita sem CSRF ou sem Origin é recusada nas novas rotas', async (t
 
 test('banco: as colunas filtradas têm índice', async (t) => {
   const { db } = await sessao(t);
-  const indices = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'movimentacoes'").all().map((i) => i.name);
-  for (const esperado of ['idx_mov_competencia', 'idx_mov_vencimento', 'idx_mov_liquidacao', 'idx_mov_conta', 'idx_mov_categoria', 'idx_mov_tipo_status', 'idx_mov_valor', 'idx_mov_excluida']) {
+  const indices = (await db.todos("SELECT indexname AS name FROM pg_indexes WHERE tablename = 'movimentacoes'", [])).map((i) => i.name);
+  // (O índice só de valor existia no SQLite local; no Postgres multiusuário ele não ajuda: toda consulta filtra
+  // antes por usuario_id, e os índices abaixo já começam por ele.)
+  for (const esperado of ['idx_mov_competencia', 'idx_mov_vencimento', 'idx_mov_liquidacao', 'idx_mov_conta', 'idx_mov_categoria', 'idx_mov_tipo_status', 'idx_mov_excluida']) {
     assert.ok(indices.includes(esperado), esperado);
   }
 });

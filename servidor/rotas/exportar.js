@@ -44,21 +44,26 @@ function anexo(reply, tipo, nome, corpo) {
 }
 
 export async function rotasExportar(app) {
-  const { db } = app;
   const sufixo = () => new Date().toISOString().slice(0, 10);
 
   // Os mesmos filtros da tela de lançamentos (menos a paginação). Sem filtro, exporta tudo.
   app.get('/api/exportar/lancamentos.csv', async (request, reply) => {
     const filtros = filtrosDeExportacao.parse(request.query);
-    const linhas = linhasDeLancamentos(db, filtros, hojeDe(db));
+    const linhas = await linhasDeLancamentos(request.esc, filtros, await hojeDe(request.esc));
     return anexo(reply, 'text/csv', `lancamentos-${sufixo()}.csv`, BOM + montarCsv(COLUNAS_LANCAMENTOS, linhas));
   });
 
   app.get('/api/exportar/compras-cartao.csv', async (request, reply) =>
-    anexo(reply, 'text/csv', `compras-cartao-${sufixo()}.csv`, BOM + montarCsv(COLUNAS_COMPRAS, linhasDeComprasCartao(db))),
+    anexo(
+      reply,
+      'text/csv',
+      `compras-cartao-${sufixo()}.csv`,
+      BOM + montarCsv(COLUNAS_COMPRAS, await linhasDeComprasCartao(request.esc)),
+    ),
   );
 
+  // Só os dados do usuário da sessão (sem hash de senha, sessões nem caminhos internos do Storage).
   app.get('/api/exportar/tudo.json', async (request, reply) =>
-    anexo(reply, 'application/json', `tracker-${sufixo()}.json`, JSON.stringify(copiaCompleta(db), null, 2)),
+    anexo(reply, 'application/json', `tracker-${sufixo()}.json`, JSON.stringify(await copiaCompleta(request.esc), null, 2)),
   );
 }

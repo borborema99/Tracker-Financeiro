@@ -34,17 +34,17 @@ test('RF-22: a média só conta a partir do primeiro mês com movimento e é nul
   assert.equal(evolucaoMensal([], ['2026-04', '2026-05']).media, null);
 });
 
-test('RF-22: pelo banco, cada mês fecha com o realizado do resumo (cartão pela compra, estorno pela data dele)', () => {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 1000000);
-  const cartao = novoCartao(db);
-  novaMov(db, { tipo: 'receita', conta_id: conta.id, valor_centavos: 400000, data_competencia: '2026-05-05', data_liquidacao: '2026-05-05' });
-  novaMov(db, { conta_id: conta.id, valor_centavos: 15000, data_competencia: '2026-05-20', data_liquidacao: '2026-05-20' });
-  novaMov(db, { conta_id: conta.id, valor_centavos: 25000, data_competencia: '2026-06-02', data_liquidacao: '2026-06-02' });
-  const compra = novaCompra(db, cartao, { valor_total_centavos: 30000, parcelas_total: 3, data_compra: '2026-05-25' });
-  estornarCompra(db, compra.id, { valor_centavos: 4000, data_estorno: '2026-06-12' }, CTX);
+test('RF-22: pelo banco, cada mês fecha com o realizado do resumo (cartão pela compra, estorno pela data dele)', async () => {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 1000000);
+  const cartao = await novoCartao(db);
+  await novaMov(db, { tipo: 'receita', conta_id: conta.id, valor_centavos: 400000, data_competencia: '2026-05-05', data_liquidacao: '2026-05-05' });
+  await novaMov(db, { conta_id: conta.id, valor_centavos: 15000, data_competencia: '2026-05-20', data_liquidacao: '2026-05-20' });
+  await novaMov(db, { conta_id: conta.id, valor_centavos: 25000, data_competencia: '2026-06-02', data_liquidacao: '2026-06-02' });
+  const compra = await novaCompra(db, cartao, { valor_total_centavos: 30000, parcelas_total: 3, data_compra: '2026-05-25' });
+  await estornarCompra(db, compra.id, { valor_centavos: 4000, data_estorno: '2026-06-12' }, CTX);
 
-  const r = evolucaoDoRealizado(db, CTX.hoje, 3);
+  const r = await evolucaoDoRealizado(db, CTX.hoje, 3);
   assert.equal(r.de, '2026-04-01');
   assert.equal(r.ate, '2026-06-30');
   const por = Object.fromEntries(r.meses.map((m) => [m.mes, m]));

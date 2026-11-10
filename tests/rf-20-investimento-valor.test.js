@@ -49,33 +49,33 @@ test('RF-20: o total da carteira só soma resultado dos avaliados, sem misturar 
   assert.equal(totaisDaCarteira([b]).resultado_centavos, null);
 });
 
-test('RF-20: avaliação por data, sem data futura; operação não pode ser anterior à última avaliação', () => {
-  const db = bancoComPadroes();
-  const inv = criarInvestimento(db, dados, CTX);
-  registrarOperacao(db, inv.id, op('aporte', 100000, '2026-06-01'), CTX);
-  const r = registrarAvaliacao(db, inv.id, aval(120000, '2026-06-10'), CTX);
+test('RF-20: avaliação por data, sem data futura; operação não pode ser anterior à última avaliação', async () => {
+  const db = await bancoComPadroes();
+  const inv = await criarInvestimento(db, dados, CTX);
+  await registrarOperacao(db, inv.id, op('aporte', 100000, '2026-06-01'), CTX);
+  const r = await registrarAvaliacao(db, inv.id, aval(120000, '2026-06-10'), CTX);
   assert.equal(r.valor_atual_centavos, 120000);
   assert.equal(r.resultado_centavos, 20000);
 
-  assert.throws(() => registrarAvaliacao(db, inv.id, aval(1, '2026-06-10'), CTX), (e) => e.statusCode === 409);
-  assert.throws(() => registrarAvaliacao(db, inv.id, aval(1, '2026-06-16'), CTX), (e) => e.statusCode === 400);
-  assert.throws(() => registrarOperacao(db, inv.id, op('aporte', 1000, '2026-06-09'), CTX), (e) => e.statusCode === 409);
+  await assert.rejects(async () => await registrarAvaliacao(db, inv.id, aval(1, '2026-06-10'), CTX), (e) => e.statusCode === 409);
+  await assert.rejects(async () => await registrarAvaliacao(db, inv.id, aval(1, '2026-06-16'), CTX), (e) => e.statusCode === 400);
+  await assert.rejects(async () => await registrarOperacao(db, inv.id, op('aporte', 1000, '2026-06-09'), CTX), (e) => e.statusCode === 409);
 
-  const depois = registrarOperacao(db, inv.id, op('aporte', 10000, '2026-06-12'), CTX);
+  const depois = await registrarOperacao(db, inv.id, op('aporte', 10000, '2026-06-12'), CTX);
   assert.equal(depois.valor_atual_centavos, 130000);
 });
 
-test('RF-20: excluir a avaliação volta ao custo e o resultado some; o resumo só existe com investimento em aberto', () => {
-  const db = bancoComPadroes();
-  assert.equal(resumoDeInvestimentos(db), null);
-  const inv = criarInvestimento(db, dados, CTX);
-  assert.equal(resumoDeInvestimentos(db), null);
-  registrarOperacao(db, inv.id, op('aporte', 100000, '2026-06-01'), CTX);
-  const comAval = registrarAvaliacao(db, inv.id, aval(120000, '2026-06-10'), CTX);
-  assert.equal(resumoDeInvestimentos(db).valor_atual_centavos, 120000);
+test('RF-20: excluir a avaliação volta ao custo e o resultado some; o resumo só existe com investimento em aberto', async () => {
+  const db = await bancoComPadroes();
+  assert.equal(await resumoDeInvestimentos(db), null);
+  const inv = await criarInvestimento(db, dados, CTX);
+  assert.equal(await resumoDeInvestimentos(db), null);
+  await registrarOperacao(db, inv.id, op('aporte', 100000, '2026-06-01'), CTX);
+  const comAval = await registrarAvaliacao(db, inv.id, aval(120000, '2026-06-10'), CTX);
+  assert.equal((await resumoDeInvestimentos(db)).valor_atual_centavos, 120000);
 
-  excluirAvaliacao(db, inv.id, comAval.avaliacoes[0].id, CTX);
-  const s = obterInvestimento(db, inv.id);
+  await excluirAvaliacao(db, inv.id, comAval.avaliacoes[0].id, CTX);
+  const s = await obterInvestimento(db, inv.id);
   assert.equal(s.valor_atual_centavos, 100000);
   assert.equal(s.resultado_centavos, null);
 });

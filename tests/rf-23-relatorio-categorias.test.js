@@ -64,19 +64,19 @@ test('RF-23: a variação é null sem valor anterior (não existe percentual sob
   assert.equal(novo.variacao_percentual, null);
 });
 
-test('RF-23: pelo banco, o total por categoria é a despesa realizada do resumo (cartão, estorno, divisão e tarifa)', () => {
-  const db = bancoComPadroes();
-  const a = novaConta(db, 'Conta A', 2000000);
-  const b = novaConta(db, 'Conta B', 0);
-  const cartao = novoCartao(db);
-  const lazer = categoriaPorNome(db, 'Lazer');
-  const mercado = categoriaPorNome(db, 'Mercado');
-  const vestuario = categoriaPorNome(db, 'Vestuário');
+test('RF-23: pelo banco, o total por categoria é a despesa realizada do resumo (cartão, estorno, divisão e tarifa)', async () => {
+  const db = await bancoComPadroes();
+  const a = await novaConta(db, 'Conta A', 2000000);
+  const b = await novaConta(db, 'Conta B', 0);
+  const cartao = await novoCartao(db);
+  const lazer = await categoriaPorNome(db, 'Lazer');
+  const mercado = await categoriaPorNome(db, 'Mercado');
+  const vestuario = await categoriaPorNome(db, 'Vestuário');
 
-  novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 12345 });
-  novaMov(db, { conta_id: a.id, categoria_id: mercado.id, valor_centavos: 23456 });
-  novaMov(db, { conta_id: a.id, categoria_id: null, valor_centavos: 777 });
-  novaMov(db, {
+  await novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 12345 });
+  await novaMov(db, { conta_id: a.id, categoria_id: mercado.id, valor_centavos: 23456 });
+  await novaMov(db, { conta_id: a.id, categoria_id: null, valor_centavos: 777 });
+  await novaMov(db, {
     conta_id: a.id,
     valor_centavos: 10001,
     categoria_id: null,
@@ -85,14 +85,14 @@ test('RF-23: pelo banco, o total por categoria é a despesa realizada do resumo 
       { categoria_id: vestuario.id, valor_centavos: 5001 },
     ],
   });
-  novaMov(db, { tipo: 'transferencia', conta_id: a.id, conta_destino_id: b.id, valor_centavos: 50000, tarifa_centavos: 990 });
-  novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 99999, status: 'pendente', data_vencimento: '2026-06-28' });
-  novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 5555, data_competencia: '2026-05-10', data_liquidacao: '2026-05-10' });
-  const compra = novaCompra(db, cartao, { categoria_id: lazer.id, valor_total_centavos: 30000, parcelas_total: 3 });
-  estornarCompra(db, compra.id, { valor_centavos: 4000, data_estorno: '2026-06-12' }, CTX);
+  await novaMov(db, { tipo: 'transferencia', conta_id: a.id, conta_destino_id: b.id, valor_centavos: 50000, tarifa_centavos: 990 });
+  await novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 99999, status: 'pendente', data_vencimento: '2026-06-28' });
+  await novaMov(db, { conta_id: a.id, categoria_id: lazer.id, valor_centavos: 5555, data_competencia: '2026-05-10', data_liquidacao: '2026-05-10' });
+  const compra = await novaCompra(db, cartao, { categoria_id: lazer.id, valor_total_centavos: 30000, parcelas_total: 3 });
+  await estornarCompra(db, compra.id, { valor_centavos: 4000, data_estorno: '2026-06-12' }, CTX);
 
-  const r = relatorioPorCategoria(db, { de: '2026-06-01', ate: '2026-06-30', tipo: 'despesa' });
-  const movs = [...movimentacoesDoPeriodo(db, '2026-06-01', '2026-06-30'), ...movimentosDeCartaoDoPeriodo(db, '2026-06-01', '2026-06-30')];
+  const r = await relatorioPorCategoria(db, { de: '2026-06-01', ate: '2026-06-30', tipo: 'despesa' });
+  const movs = [...await movimentacoesDoPeriodo(db, '2026-06-01', '2026-06-30'), ...await movimentosDeCartaoDoPeriodo(db, '2026-06-01', '2026-06-30')];
   assert.equal(r.total_centavos, resumoRealizado(movs, '2026-06-01', '2026-06-30').despesas);
   assert.equal(r.itens.reduce((s, i) => s + i.valor_centavos, 0), r.total_centavos);
   assert.deepEqual(r.periodo_anterior, { de: '2026-05-01', ate: '2026-05-31' });
@@ -102,14 +102,14 @@ test('RF-23: pelo banco, o total por categoria é a despesa realizada do resumo 
   assert.equal(lazerItem.anterior_centavos, 5555);
 });
 
-test('RF-23: o relatório de receitas usa só receita liquidada, com divisão', () => {
-  const db = bancoComPadroes();
-  const a = novaConta(db, 'Conta A', 0);
-  const salario = categoriaPorNome(db, 'Salário');
-  novaMov(db, { tipo: 'receita', conta_id: a.id, categoria_id: salario.id, valor_centavos: 500000 });
-  novaMov(db, { tipo: 'receita', conta_id: a.id, categoria_id: salario.id, valor_centavos: 70000, status: 'pendente', data_vencimento: '2026-06-28' });
-  novaMov(db, { conta_id: a.id, categoria_id: null, valor_centavos: 1000 });
-  const r = relatorioPorCategoria(db, { de: '2026-06-01', ate: '2026-06-30', tipo: 'receita' });
+test('RF-23: o relatório de receitas usa só receita liquidada, com divisão', async () => {
+  const db = await bancoComPadroes();
+  const a = await novaConta(db, 'Conta A', 0);
+  const salario = await categoriaPorNome(db, 'Salário');
+  await novaMov(db, { tipo: 'receita', conta_id: a.id, categoria_id: salario.id, valor_centavos: 500000 });
+  await novaMov(db, { tipo: 'receita', conta_id: a.id, categoria_id: salario.id, valor_centavos: 70000, status: 'pendente', data_vencimento: '2026-06-28' });
+  await novaMov(db, { conta_id: a.id, categoria_id: null, valor_centavos: 1000 });
+  const r = await relatorioPorCategoria(db, { de: '2026-06-01', ate: '2026-06-30', tipo: 'receita' });
   assert.equal(r.total_centavos, 500000);
   assert.equal(r.itens[0].nome, 'Salário');
 });

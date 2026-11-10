@@ -2,8 +2,7 @@ import { gravarConfig, lerConfig } from './config-db.js';
 import { criarCategoria } from './repositorios/categorias.js';
 
 // Categorias e subcategorias padrão (seções 2 e 3 do escopo). São só o ponto de partida: tudo é
-// editável na tela. Quem instala agora recebe esta lista inteira; quem já tinha semeado recebe o que
-// faltava pela migration 010, que repete a lista em SQL (tests/padroes-migration.test.js confere as duas).
+// editável na tela. Cada usuário recebe a lista inteira uma vez, ao ser criado (ADR 013).
 export const CATEGORIAS_DESPESA = {
   Moradia: ['Aluguel ou financiamento', 'Condomínio', 'Energia', 'Água', 'Gás', 'Internet', 'Manutenção', 'Móveis e eletrodomésticos'],
   Alimentação: ['Mercado', 'Padaria e feira', 'Restaurantes', 'Delivery'],
@@ -36,19 +35,19 @@ export const CATEGORIAS_RECEITA = {
 const CHAVE = 'padroes_semeados';
 
 /** Cria as categorias padrão uma única vez (marcadas no config). Idempotente. */
-export function semearPadroes(db, agora = new Date()) {
-  if (lerConfig(db, CHAVE) === '1') return false;
-  db.transaction(() => {
+export async function semearPadroes(esc, agora = new Date()) {
+  if ((await lerConfig(esc, CHAVE)) === '1') return false;
+  await esc.transacao(async (tx) => {
     for (const [tipo, grupo] of [['despesa', CATEGORIAS_DESPESA], ['receita', CATEGORIAS_RECEITA]]) {
       for (const [nome, filhas] of Object.entries(grupo)) {
         const papel = nome === 'Tarifas bancárias' ? 'tarifa' : null;
-        const pai = criarCategoria(db, { nome, tipo, arquivada: false }, { agora, papel });
+        const pai = await criarCategoria(tx, { nome, tipo, arquivada: false }, { agora, papel });
         for (const filha of filhas) {
-          criarCategoria(db, { nome: filha, tipo, pai_id: pai.id, arquivada: false }, { agora });
+          await criarCategoria(tx, { nome: filha, tipo, pai_id: pai.id, arquivada: false }, { agora });
         }
       }
     }
-    gravarConfig(db, CHAVE, '1');
-  })();
+    await gravarConfig(tx, CHAVE, '1');
+  });
   return true;
 }

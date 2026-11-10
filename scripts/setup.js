@@ -1,47 +1,45 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { abrirBanco } from '../servidor/banco/conexao.js';
-import { migrar } from '../servidor/banco/migrar.js';
-import { semearPadroes } from '../servidor/banco/padroes.js';
+import { abrirBancoDaConfig } from '../servidor/banco/abrir.js';
+import { migrar } from '../servidor/banco/pg/migrar.js';
 import { RAIZ, carregarEnv, lerAmbiente } from '../servidor/config.js';
-import { definirSenha, senhaDefinida } from '../servidor/seguranca/senha.js';
-import { pedirSenhaNova } from './lib/senha-nova.js';
+
+// Gera só os segredos que faltam (nunca troca um que já existe: trocar SENHA_PEPPER invalida todas as senhas) e
+// aplica as migrations no banco configurado: DATABASE_URL, ou PGlite local se ela estiver vazia. Usuários nascem
+// por `npm run criar-usuario`.
 
 const arquivoEnv = join(RAIZ, '.env');
+const SEGREDOS = ['SEGREDO_SESSAO', 'SENHA_PEPPER', 'HMAC_CHAVE_IP'];
 
 function prepararEnv() {
-  const modelo = readFileSync(join(RAIZ, '.env.example'), 'utf8');
-  const segredo = randomBytes(32).toString('hex');
-  if (!existsSync(arquivoEnv)) {
-    writeFileSync(arquivoEnv, modelo.replace(/^SEGREDO_SESSAO=.*$/m, `SEGREDO_SESSAO=${segredo}`));
-    console.log('Criado .env com segredo gerado.');
-    return;
+  let texto = existsSync(arquivoEnv) ? readFileSync(arquivoEnv, 'utf8') : readFileSync(join(RAIZ, '.env.example'), 'utf8');
+  const gerados = [];
+  for (const nome of SEGREDOS) {
+    if (new RegExp(`^${nome}=\\S+`, 'm').test(texto)) continue;
+    const valor = randomBytes(32).toString('hex');
+    texto = new RegExp(`^${nome}=.*$`, 'm').test(texto)
+      ? texto.replace(new RegExp(`^${nome}=.*$`, 'm'), `${nome}=${valor}`)
+      : `${texto.trimEnd()}\n${nome}=${valor}\n`;
+    gerados.push(nome);
   }
-  const atual = readFileSync(arquivoEnv, 'utf8');
-  if (/^SEGREDO_SESSAO=\S+/m.test(atual)) return;
-  const texto = /^SEGREDO_SESSAO=.*$/m.test(atual)
-    ? atual.replace(/^SEGREDO_SESSAO=.*$/m, `SEGREDO_SESSAO=${segredo}`)
-    : `${atual.trimEnd()}\nSEGREDO_SESSAO=${segredo}\n`;
-  writeFileSync(arquivoEnv, texto);
-  console.log('SEGREDO_SESSAO gerado no .env existente.');
+  if (gerados.length || !existsSync(arquivoEnv)) writeFileSync(arquivoEnv, texto);
+  if (gerados.length) console.log(`Segredos gerados no .env: ${gerados.join(', ')}.`);
+  if (gerados.includes('SENHA_PEPPER')) {
+    console.log('Guarde uma cópia do SENHA_PEPPER: sem ele, nenhuma senha cadastrada volta a funcionar.');
+  }
 }
 
 prepararEnv();
 carregarEnv();
 const config = lerAmbiente();
-mkdirSync(join(RAIZ, 'data'), { recursive: true });
 
-const db = abrirBanco(config.caminhoBanco);
-const aplicadas = migrar(db);
-console.log(aplicadas.length ? `Migrations aplicadas: ${aplicadas.join(', ')}` : 'Banco já está atualizado.');
-if (semearPadroes(db)) console.log('Categorias padrão criadas (você pode editá-las no app).');
-
-if (senhaDefinida(db)) {
-  console.log('A senha já está definida. Para trocar: npm run redefinir-senha');
-} else {
-  await definirSenha(db, await pedirSenhaNova());
-  console.log('Senha definida.');
+const banco = await abrirBancoDaConfig(config);
+try {
+  const aplicadas = await migrar(banco);
+  console.log(aplicadas.length ? `Migrations aplicadas: ${aplicadas.join(', ')}` : 'Banco já está atualizado.');
+} finally {
+  await banco.fechar();
 }
-db.close();
-console.log('\nPronto. Próximos passos: npm run build  e  npm start');
+console.log(`Banco: ${config.bancoUrl ? 'Postgres (DATABASE_URL)' : 'PGlite local (data/pglite)'}`);
+console.log('\nPronto. Crie seu usuário com: npm run criar-usuario -- <usuario>');

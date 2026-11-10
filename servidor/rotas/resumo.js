@@ -14,31 +14,30 @@ import { resumoDoPeriodo } from '../dominio/resumo.js';
 import { garantirOcorrencias } from './util.js';
 
 export async function rotasResumo(app) {
-  const { db } = app;
-
   /**
    * Indicadores do mês (padrão: mês atual no fuso configurado). Saldos, realizado e previsto vêm
    * em blocos separados; não existe número que misture realizado com previsto.
    */
   app.get('/api/resumo', async (request) => {
+    const esc = request.esc;
     const { mes } = esquemaMes.parse(request.query);
-    const { hoje } = garantirOcorrencias(db);
+    const { hoje } = await garantirOcorrencias(esc);
     const mesAlvo = mes ?? hoje.slice(0, 7);
     const periodo = intervaloDoMes(mesAlvo);
-    const contas = listarContas(db, { incluirArquivadas: false });
+    const contas = await listarContas(esc, { incluirArquivadas: false });
     // RF-04: a compra no cartão é despesa realizada na data da compra; pagar fatura não entra aqui.
     const movimentos = [
-      ...movimentacoesDoPeriodo(db, periodo.de, periodo.ate),
-      ...movimentosDeCartaoDoPeriodo(db, periodo.de, periodo.ate),
+      ...(await movimentacoesDoPeriodo(esc, periodo.de, periodo.ate)),
+      ...(await movimentosDeCartaoDoPeriodo(esc, periodo.de, periodo.ate)),
     ];
-    const cartoes = resumoDosCartoes(db, hoje);
-    const aPagar = compromissosPendentes(db, 'despesa');
-    const aReceber = compromissosPendentes(db, 'receita');
-    const orcamento = orcamentoSeExistir(db, mesAlvo);
-    const metas = resumoDeMetas(db, hoje);
-    const dividas = resumoDeDividas(db, hoje);
-    const assinaturas = resumoDeAssinaturas(db);
-    const { carteira, moedas, patrimonio } = calcularPatrimonioAtual(db, hoje);
+    const cartoes = await resumoDosCartoes(esc, hoje);
+    const aPagar = await compromissosPendentes(esc, 'despesa');
+    const aReceber = await compromissosPendentes(esc, 'receita');
+    const orcamento = await orcamentoSeExistir(esc, mesAlvo);
+    const metas = await resumoDeMetas(esc, hoje);
+    const dividas = await resumoDeDividas(esc, hoje);
+    const assinaturas = await resumoDeAssinaturas(esc);
+    const { carteira, moedas, patrimonio } = await calcularPatrimonioAtual(esc, hoje);
     return {
       mes: mesAlvo,
       periodo,

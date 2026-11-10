@@ -3,14 +3,14 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { HOST, ORIGEM, appDeTeste, entrar } from './ajuda.js';
+import { HOST, ORIGEM, SENHA, appDeTeste, entrar } from './ajuda.js';
 
 const ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const PUBLICAS = ['GET /api/sessao', 'POST /api/login', 'GET /api/saude'];
+const PUBLICAS = ['GET /api/sessao', 'POST /api/login', 'POST /api/cadastro', 'GET /api/saude'];
 
 const caminho = (url) => url.replace(/:\w+/g, '1');
 
-test('segurança: só as três rotas esperadas são públicas; todas as outras de /api exigem sessão', async (t) => {
+test('segurança: só as quatro rotas esperadas são públicas; todas as outras de /api exigem sessão', async (t) => {
   const { app, fechar } = await appDeTeste();
   t.after(fechar);
   assert.ok(app.rotas.length > 50, 'o registro de rotas funciona');
@@ -87,7 +87,7 @@ test('segurança: respostas da API não são guardadas em cache e trazem os cabe
   }
 });
 
-test('segurança: o cookie de sessão é HttpOnly e SameSite=Strict, e só é Secure em HTTPS', async (t) => {
+test('segurança: em HTTP local o cookie é "sessao" (HttpOnly, SameSite=Strict, sem Secure)', async (t) => {
   const { app, fechar } = await appDeTeste();
   t.after(fechar);
   const { res } = await entrar(app);
@@ -95,12 +95,42 @@ test('segurança: o cookie de sessão é HttpOnly e SameSite=Strict, e só é Se
   assert.equal(cookie.httpOnly, true);
   assert.equal(cookie.sameSite, 'Strict');
   assert.ok(!cookie.secure, 'em HTTP simples o cookie não pode ser Secure, senão o navegador o descarta');
+  assert.equal(res.cookies.some((c) => c.name === '__Host-sessao'), false);
+});
+
+test('segurança: em HTTPS o cookie é "__Host-sessao" (HttpOnly, Secure, SameSite=Strict, Path=/, sem Domain)', async (t) => {
+  const { app, fechar } = await appDeTeste();
+  t.after(fechar);
   const https = await app.inject({
-    method: 'POST', url: '/api/login', payload: { senha: 'senha-de-teste-123' },
+    method: 'POST', url: '/api/login', payload: { usuario: 'tester', senha: SENHA },
     headers: { host: HOST, origin: ORIGEM, 'x-forwarded-proto': 'https' },
     remoteAddress: '127.0.0.1',
   });
-  assert.equal(https.cookies.find((c) => c.name === 'sessao').secure, true);
+  assert.equal(https.statusCode, 200);
+  assert.equal(https.cookies.some((c) => c.name === 'sessao'), false, 'o nome simples não é usado em HTTPS');
+  const cookie = https.cookies.find((c) => c.name === '__Host-sessao');
+  assert.equal(cookie.secure, true);
+  assert.equal(cookie.httpOnly, true);
+  assert.equal(cookie.sameSite, 'Strict');
+  assert.equal(cookie.path, '/');
+  assert.equal(cookie.domain, undefined, 'o prefixo __Host- proíbe Domain');
+});
+
+test('segurança: o cookie do protocolo errado não abre a sessão', async (t) => {
+  const { app, fechar } = await appDeTeste();
+  t.after(fechar);
+  const { cookie } = await entrar(app); // cookie "sessao", emitido em http
+  const emHttps = await app.inject({
+    method: 'GET', url: '/api/contas',
+    headers: { host: HOST, cookie, 'x-forwarded-proto': 'https' },
+    remoteAddress: '127.0.0.1',
+  });
+  assert.equal(emHttps.statusCode, 401, 'em HTTPS só vale o __Host-sessao');
+  const comPrefixoEmHttp = await app.inject({
+    method: 'GET', url: '/api/contas',
+    headers: { host: HOST, cookie: cookie.replace('sessao=', '__Host-sessao=') },
+  });
+  assert.equal(comPrefixoEmHttp.statusCode, 401, 'em HTTP só vale o nome simples');
 });
 
 // --- O front não pode depender de nada que a CSP bloqueia -------------------------------------------------

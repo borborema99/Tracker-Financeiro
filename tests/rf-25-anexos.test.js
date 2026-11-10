@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
-import { fazerBackup } from '../scripts/backup.js';
-import { abrirBanco } from '../servidor/banco/conexao.js';
-import { migrar } from '../servidor/banco/migrar.js';
-import { semearPadroes } from '../servidor/banco/padroes.js';
+import { criarArmazenamentoMemoria } from '../servidor/armazenamento/index.js';
 import { TABELAS_DA_COPIA } from '../servidor/banco/repositorios/exportacao.js';
 import { excluirMovimentacao } from '../servidor/banco/repositorios/movimentacoes.js';
 import { anexarArquivo, listarAnexos, obterArquivo, removerAnexo } from '../servidor/banco/repositorios/anexos.js';
@@ -37,81 +31,89 @@ test('RF-25: o nome guardado não tem pasta nem caractere perigoso e leva a exte
   assert.equal(nomeSeguro('a'.repeat(400) + '.png', 'image/png').length, 114);
 });
 
-function cenario() {
-  const db = bancoComPadroes();
-  const conta = novaConta(db, 'Conta A', 100000);
-  const mov = novaMov(db, { conta_id: conta.id, descricao: 'Mercado' });
-  return { db, mov };
+async function cenario() {
+  const db = await bancoComPadroes();
+  const conta = await novaConta(db, 'Conta A', 100000);
+  const mov = await novaMov(db, { conta_id: conta.id, descricao: 'Mercado' });
+  return { db, mov, arm: criarArmazenamentoMemoria() };
 }
 
-test('RF-25: anexa em lançamento existente, lista sem o conteúdo e devolve o arquivo igual ao enviado', () => {
-  const { db, mov } = cenario();
-  const anexo = anexarArquivo(db, mov.id, { nome: 'recibo.png', conteudo: PNG }, CTX);
+test('RF-25: anexa em lançamento existente, lista sem o conteúdo e devolve o arquivo igual ao enviado', async () => {
+  const { db, mov, arm } = await cenario();
+  const anexo = await anexarArquivo(db, arm, mov.id, { nome: 'recibo.png', conteudo: PNG }, CTX);
   assert.equal(anexo.tipo_mime, 'image/png');
   assert.equal(anexo.tamanho_bytes, PNG.length);
-  const itens = listarAnexos(db, mov.id);
+  assert.equal(anexo.caminho_storage, undefined, 'o caminho interno do Storage não vaza');
+  const itens = await listarAnexos(db, mov.id);
   assert.equal(itens.length, 1);
   assert.equal(itens[0].conteudo, undefined);
-  assert.ok(obterArquivo(db, anexo.id).conteudo.equals(PNG));
-  assert.throws(() => anexarArquivo(db, 9999, { nome: 'a.png', conteudo: PNG }, CTX), (e) => e.statusCode === 404);
+  assert.ok((await obterArquivo(db, arm, anexo.id)).conteudo.equals(PNG));
+  await assert.rejects(async () => await anexarArquivo(db, arm, 9999, { nome: 'a.png', conteudo: PNG }, CTX), (e) => e.statusCode === 404);
+  assert.equal(arm.caminhos().length, 1, 'nada foi enviado para um lançamento que não existe');
 });
 
-test('RF-25: recusa tipo não aceito, arquivo vazio, grande demais, repetido e além do limite por lançamento', () => {
-  const { db, mov } = cenario();
+test('RF-25: o arquivo vai para o Storage em <usuario>/<uuid>, nunca para o banco', async () => {
+  const { db, mov, arm } = await cenario();
+  const anexo = await anexarArquivo(db, arm, mov.id, { nome: 'recibo.png', conteudo: PNG }, CTX);
+  const [caminho] = arm.caminhos();
+  assert.match(caminho, new RegExp(`^${db.usuarioId}/[0-9a-f-]{36}$`));
+  const linha = await db.um('SELECT * FROM anexos WHERE id = ?', [anexo.id]);
+  assert.equal(linha.caminho_storage, caminho);
+  assert.equal('conteudo' in linha, false);
+});
+
+test('RF-25: recusa tipo não aceito, arquivo vazio, grande demais, repetido e além do limite por lançamento', async () => {
+  const { db, mov, arm } = await cenario();
   const campo = (e) => e.statusCode === 400 && 'arquivo' in e.campos;
-  assert.throws(() => anexarArquivo(db, mov.id, { nome: 'x.png', conteudo: Buffer.from('<?php echo 1; ?>') }, CTX), campo);
-  assert.throws(() => anexarArquivo(db, mov.id, { nome: 'x.png', conteudo: Buffer.alloc(0) }, CTX), campo);
-  assert.throws(() => anexarArquivo(db, mov.id, { nome: 'x.pdf', conteudo: Buffer.concat([PDF, Buffer.alloc(5 * 1024 * 1024)]) }, CTX), campo);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'x.png', conteudo: Buffer.from('<?php echo 1; ?>') }, CTX), campo);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'x.png', conteudo: Buffer.alloc(0) }, CTX), campo);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'x.pdf', conteudo: Buffer.concat([PDF, Buffer.alloc(5 * 1024 * 1024)]) }, CTX), campo);
+  assert.equal(arm.caminhos().length, 0, 'arquivo recusado não chega ao Storage');
 
-  anexarArquivo(db, mov.id, { nome: 'a.png', conteudo: PNG }, CTX);
-  assert.throws(() => anexarArquivo(db, mov.id, { nome: 'copia.png', conteudo: PNG }, CTX), (e) => e.statusCode === 409);
+  await anexarArquivo(db, arm, mov.id, { nome: 'a.png', conteudo: PNG }, CTX);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'copia.png', conteudo: PNG }, CTX), (e) => e.statusCode === 409);
   for (let i = 1; i < 10; i += 1) {
-    anexarArquivo(db, mov.id, { nome: `p${i}.pdf`, conteudo: Buffer.concat([PDF, Buffer.from(String(i))]) }, CTX);
+    await anexarArquivo(db, arm, mov.id, { nome: `p${i}.pdf`, conteudo: Buffer.concat([PDF, Buffer.from(String(i))]) }, CTX);
   }
-  assert.throws(() => anexarArquivo(db, mov.id, { nome: 'um-a-mais.pdf', conteudo: Buffer.concat([PDF, Buffer.from('x')]) }, CTX), (e) => e.statusCode === 409);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'um-a-mais.pdf', conteudo: Buffer.concat([PDF, Buffer.from('x')]) }, CTX), (e) => e.statusCode === 409);
+  assert.equal(arm.caminhos().length, 10);
 });
 
-test('RF-25: remover apaga o conteúdo e mantém o registro no audit_log; lançamento excluído esconde os anexos', () => {
-  const { db, mov } = cenario();
-  const a = anexarArquivo(db, mov.id, { nome: 'a.png', conteudo: PNG }, CTX);
-  const b = anexarArquivo(db, mov.id, { nome: 'b.pdf', conteudo: PDF }, CTX);
-  removerAnexo(db, a.id, CTX);
-  assert.equal(obterArquivo(db, a.id), null);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM anexos_arquivos WHERE anexo_id = ?').get(a.id).n, 0);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE entidade = 'anexo' AND acao = 'excluir'").get().n, 1);
-  assert.throws(() => removerAnexo(db, a.id, CTX), (e) => e.statusCode === 404);
-  assert.equal(listarAnexos(db, mov.id).length, 1);
+test('RF-25: se o Storage falha, nada fica registrado; se o banco falha depois do envio, o arquivo é apagado', async () => {
+  const { db, mov } = await cenario();
+  const quebrado = { ...criarArmazenamentoMemoria(), guardar: async () => { throw new Error('Storage fora do ar'); } };
+  await assert.rejects(async () => await anexarArquivo(db, quebrado, mov.id, { nome: 'a.png', conteudo: PNG }, CTX), /Storage fora do ar/);
+  assert.equal((await listarAnexos(db, mov.id)).length, 0);
 
-  excluirMovimentacao(db, mov.id, CTX);
-  assert.equal(listarAnexos(db, mov.id), null);
-  assert.equal(obterArquivo(db, b.id), null);
+  // O banco recusa o registro (o nome estoura o limite da coluna): o objeto já enviado precisa ser desfeito.
+  const arm = criarArmazenamentoMemoria();
+  await db.rodar('ALTER TABLE anexos ADD CONSTRAINT teste_recusa CHECK (nome <> \'recusado.png\')', []);
+  await assert.rejects(async () => await anexarArquivo(db, arm, mov.id, { nome: 'recusado.png', conteudo: PNG }, CTX));
+  assert.equal(arm.caminhos().length, 0, 'objeto órfão foi apagado');
+});
+
+test('RF-25: remover apaga o objeto do Storage e mantém o registro no audit_log; lançamento excluído esconde os anexos', async () => {
+  const { db, mov, arm } = await cenario();
+  const a = await anexarArquivo(db, arm, mov.id, { nome: 'a.png', conteudo: PNG }, CTX);
+  const b = await anexarArquivo(db, arm, mov.id, { nome: 'b.pdf', conteudo: PDF }, CTX);
+  await removerAnexo(db, arm, a.id, CTX);
+  assert.equal(await obterArquivo(db, arm, a.id), null);
+  assert.equal(arm.caminhos().length, 1, 'só o objeto de b continua no Storage');
+  const removido = await db.um('SELECT caminho_storage, excluido_em FROM anexos WHERE id = ?', [a.id]);
+  assert.equal(removido.caminho_storage, null);
+  assert.ok(removido.excluido_em);
+  assert.equal((await db.um("SELECT COUNT(*) AS n FROM audit_log WHERE entidade = 'anexo' AND acao = 'excluir'", [])).n, 1);
+  await assert.rejects(async () => await removerAnexo(db, arm, a.id, CTX), (e) => e.statusCode === 404);
+  assert.equal((await listarAnexos(db, mov.id)).length, 1);
+
+  await excluirMovimentacao(db, mov.id, CTX);
+  assert.equal(await listarAnexos(db, mov.id), null);
+  assert.equal(await obterArquivo(db, arm, b.id), null);
 });
 
 test('RF-25: o JSON exportado leva o registro dos anexos, nunca o conteúdo', () => {
   assert.ok(TABELAS_DA_COPIA.includes('anexos'));
   assert.ok(!TABELAS_DA_COPIA.includes('anexos_arquivos'));
-});
-
-test('RF-25: o backup leva o conteúdo dos anexos', async (t) => {
-  const pasta = mkdtempSync(join(tmpdir(), 'tracker-anexo-'));
-  const db = abrirBanco(join(pasta, 'tracker.db'));
-  t.after(() => {
-    if (db.open) db.close();
-    rmSync(pasta, { recursive: true, force: true, maxRetries: 30, retryDelay: 100 });
-  });
-  migrar(db);
-  semearPadroes(db);
-  const conta = novaConta(db, 'Conta A', 1000);
-  const mov = novaMov(db, { conta_id: conta.id });
-  const anexo = anexarArquivo(db, mov.id, { nome: 'a.png', conteudo: PNG }, CTX);
-
-  const destino = await fazerBackup(db, 'tracker', join(pasta, 'backups'));
-  const copia = abrirBanco(destino);
-  try {
-    assert.ok(copia.prepare('SELECT conteudo FROM anexos_arquivos WHERE anexo_id = ?').get(anexo.id).conteudo.equals(PNG));
-  } finally {
-    copia.close();
-  }
 });
 
 async function sessao(t) {
@@ -130,8 +132,8 @@ test('API anexos: exigem sessão e CSRF, aceitam o arquivo cru e servem com nosn
     assert.equal(r.statusCode, 401, `${metodo} ${url}`);
   }
 
-  const conta = novaConta(db, 'Conta A', 1000);
-  const mov = novaMov(db, { conta_id: conta.id });
+  const conta = await novaConta(db, 'Conta A', 1000);
+  const mov = await novaMov(db, { conta_id: conta.id });
   const url = `/api/movimentacoes/${mov.id}/anexos`;
 
   const semNome = await chamar('POST', url, { payload: PNG, headers: { 'content-type': 'image/png' } });
@@ -148,12 +150,14 @@ test('API anexos: exigem sessão e CSRF, aceitam o arquivo cru e servem com nosn
   });
   assert.equal(criado.statusCode, 201);
   assert.equal(criado.json().nome, 'Recibo do mercado.png');
+  assert.equal(criado.json().caminho_storage, undefined);
 
   const arquivo = await chamar('GET', `/api/anexos/${criado.json().id}/arquivo`);
   assert.equal(arquivo.statusCode, 200);
   assert.equal(arquivo.headers['content-type'], 'image/png');
   assert.equal(arquivo.headers['x-content-type-options'], 'nosniff');
   assert.match(arquivo.headers['content-disposition'], /^inline;/);
+  assert.equal(arquivo.headers['cache-control'], 'private, no-store');
   assert.ok(arquivo.rawPayload.equals(PNG));
 
   const pdf = await chamar('POST', url, { payload: PDF, headers: { 'content-type': 'application/pdf', 'x-nome-arquivo': 'nota.pdf' } });

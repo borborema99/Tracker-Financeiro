@@ -25,5 +25,6 @@ export function aplicarCabecalhos(request, reply) {
   if (request.protocol === 'https') {
     reply.header('Strict-Transport-Security', 'max-age=15552000');
   }
-  if (request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+  // Padrão da API; rota que define o próprio Cache-Control (ex.: download de comprovante) mantém o dela.
+  if (request.url.startsWith('/api/') && !reply.getHeader('Cache-Control')) reply.header('Cache-Control', 'no-store');
 }

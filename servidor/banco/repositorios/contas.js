@@ -7,106 +7,109 @@ import { operacoesDeMoedaComoMovimentos } from './moedas.js';
 
 const COLUNAS = 'id, nome, tipo, saldo_inicial_centavos, arquivada, criada_em, atualizada_em';
 
-const paraApi = (l) => ({ ...l, arquivada: l.arquivada === 1 });
-
-function nomeEmUso(db, nome, ignorarId = null) {
-  return !!db
-    .prepare(
-      'SELECT 1 FROM contas WHERE excluida_em IS NULL AND nome = ? COLLATE NOCASE AND id <> ?',
-    )
-    .get(nome, ignorarId ?? -1);
+async function nomeEmUso(esc, nome, ignorarId = null) {
+  const linha = await esc.um(
+    'SELECT 1 AS um FROM contas WHERE usuario_id = :u AND excluida_em IS NULL AND lower(nome) = lower(?) AND id <> ?',
+    [nome, ignorarId ?? -1],
+  );
+  return !!linha;
 }
 
 /** Contas com saldo calculado das movimentações liquidadas (RF-01). */
-export function listarContas(db, { incluirArquivadas = true } = {}) {
-  const linhas = db
-    .prepare(`SELECT ${COLUNAS} FROM contas WHERE excluida_em IS NULL ORDER BY arquivada, nome COLLATE NOCASE`)
-    .all();
-  const movs = db
-    .prepare(
-      `SELECT tipo, conta_id, conta_destino_id, valor_centavos, status
-         FROM movimentacoes WHERE excluida_em IS NULL AND status = 'liquidada'`,
-    )
-    .all();
-  const saldos = calcularSaldos(linhas, [...movs, ...pagamentosComoMovimentos(db), ...operacoesComoMovimentos(db), ...operacoesDeMoedaComoMovimentos(db)]);
+export async function listarContas(esc, { incluirArquivadas = true } = {}) {
+  const linhas = await esc.todos(
+    `SELECT ${COLUNAS} FROM contas WHERE usuario_id = :u AND excluida_em IS NULL ORDER BY arquivada, lower(nome)`,
+  );
+  const movs = await esc.todos(
+    `SELECT tipo, conta_id, conta_destino_id, valor_centavos, status
+       FROM movimentacoes WHERE usuario_id = :u AND excluida_em IS NULL AND status = 'liquidada'`,
+  );
+  const saldos = calcularSaldos(linhas, [
+    ...movs,
+    ...(await pagamentosComoMovimentos(esc)),
+    ...(await operacoesComoMovimentos(esc)),
+    ...(await operacoesDeMoedaComoMovimentos(esc)),
+  ]);
   return linhas
-    .filter((l) => incluirArquivadas || l.arquivada === 0)
-    .map((l) => ({ ...paraApi(l), saldo_centavos: saldos[l.id] }));
+    .filter((l) => incluirArquivadas || !l.arquivada)
+    .map((l) => ({ ...l, saldo_centavos: saldos[l.id] }));
 }
 
-export function obterConta(db, id) {
-  return listarContas(db).find((c) => c.id === id) ?? null;
+export async function obterConta(esc, id) {
+  return (await listarContas(esc)).find((c) => c.id === id) ?? null;
 }
 
-export function criarConta(db, dados, { agora = new Date() } = {}) {
-  if (nomeEmUso(db, dados.nome)) throw invalido({ nome: 'Já existe uma conta com esse nome.' });
-  return db.transaction(() => {
+export async function criarConta(esc, dados, { agora = new Date() } = {}) {
+  if (await nomeEmUso(esc, dados.nome)) throw invalido({ nome: 'Já existe uma conta com esse nome.' });
+  return esc.transacao(async (tx) => {
     const iso = agora.toISOString();
-    const { lastInsertRowid } = db
-      .prepare(
-        `INSERT INTO contas (nome, tipo, saldo_inicial_centavos, arquivada, criada_em, atualizada_em)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .run(dados.nome, dados.tipo, dados.saldo_inicial_centavos, dados.arquivada ? 1 : 0, iso, iso);
-    const depois = obterConta(db, Number(lastInsertRowid));
-    auditar(db, { entidade: 'conta', id: depois.id, acao: 'criar', depois });
+    const [{ id }] = await tx.rodar(
+      `INSERT INTO contas (usuario_id, nome, tipo, saldo_inicial_centavos, arquivada, criada_em, atualizada_em)
+       VALUES (:u, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [dados.nome, dados.tipo, dados.saldo_inicial_centavos, !!dados.arquivada, iso, iso],
+    );
+    const depois = await obterConta(tx, id);
+    await auditar(tx, { entidade: 'conta', id: depois.id, acao: 'criar', depois });
     return depois;
-  })();
+  });
 }
 
-export function atualizarConta(db, id, dados, { agora = new Date() } = {}) {
-  const antes = obterConta(db, id);
+export async function atualizarConta(esc, id, dados, { agora = new Date() } = {}) {
+  const antes = await obterConta(esc, id);
   if (!antes) throw naoEncontrado('Conta');
-  if (nomeEmUso(db, dados.nome, id)) throw invalido({ nome: 'Já existe uma conta com esse nome.' });
-  return db.transaction(() => {
-    db.prepare(
+  if (await nomeEmUso(esc, dados.nome, id)) throw invalido({ nome: 'Já existe uma conta com esse nome.' });
+  return esc.transacao(async (tx) => {
+    await tx.rodar(
       `UPDATE contas SET nome = ?, tipo = ?, saldo_inicial_centavos = ?, arquivada = ?, atualizada_em = ?
-        WHERE id = ?`,
-    ).run(dados.nome, dados.tipo, dados.saldo_inicial_centavos, dados.arquivada ? 1 : 0, agora.toISOString(), id);
-    const depois = obterConta(db, id);
-    auditar(db, { entidade: 'conta', id, acao: 'editar', antes, depois });
+        WHERE usuario_id = :u AND id = ?`,
+      [dados.nome, dados.tipo, dados.saldo_inicial_centavos, !!dados.arquivada, agora.toISOString(), id],
+    );
+    const depois = await obterConta(tx, id);
+    await auditar(tx, { entidade: 'conta', id, acao: 'editar', antes, depois });
     return depois;
-  })();
+  });
 }
 
 /** Só exclui conta sem movimentações; senão o caminho é arquivar (RF-08: nada fica órfão). */
-export function excluirConta(db, id, { agora = new Date() } = {}) {
-  const antes = obterConta(db, id);
+export async function excluirConta(esc, id, { agora = new Date() } = {}) {
+  const antes = await obterConta(esc, id);
   if (!antes) throw naoEncontrado('Conta');
-  const usos = db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM movimentacoes
-        WHERE excluida_em IS NULL AND (conta_id = ? OR conta_destino_id = ?)`,
-    )
-    .get(id, id).n;
+  const { n: usos } = await esc.um(
+    `SELECT COUNT(*) AS n FROM movimentacoes
+      WHERE usuario_id = :u AND excluida_em IS NULL AND (conta_id = ? OR conta_destino_id = ?)`,
+    [id, id],
+  );
   if (usos > 0) {
     throw conflito('Esta conta tem movimentações. Arquive a conta em vez de excluir.');
   }
-  const usadaNoCartao = db
-    .prepare(
-      `SELECT 1 FROM pagamentos_fatura WHERE conta_id = ? AND excluido_em IS NULL
-       UNION ALL SELECT 1 FROM cartoes WHERE conta_pagamento_id = ? AND excluido_em IS NULL`,
-    )
-    .get(id, id);
+  const usadaNoCartao = await esc.um(
+    `SELECT 1 AS um FROM pagamentos_fatura WHERE usuario_id = :u AND conta_id = ? AND excluido_em IS NULL
+     UNION ALL SELECT 1 FROM cartoes WHERE usuario_id = :u AND conta_pagamento_id = ? AND excluido_em IS NULL`,
+    [id, id],
+  );
   if (usadaNoCartao) {
     throw conflito('Esta conta tem pagamento de fatura ou é a conta de um cartão. Arquive a conta em vez de excluir.');
   }
-  const usadaEmInvestimento = db
-    .prepare('SELECT 1 FROM investimentos_operacoes WHERE conta_id = ? AND excluida_em IS NULL')
-    .get(id);
+  const usadaEmInvestimento = await esc.um(
+    'SELECT 1 AS um FROM investimentos_operacoes WHERE usuario_id = :u AND conta_id = ? AND excluida_em IS NULL',
+    [id],
+  );
   if (usadaEmInvestimento) {
     throw conflito('Esta conta tem aportes ou resgates de investimento. Arquive a conta em vez de excluir.');
   }
-  const usadaEmMoeda = db.prepare('SELECT 1 FROM moeda_operacoes WHERE conta_id = ? AND excluida_em IS NULL').get(id);
+  const usadaEmMoeda = await esc.um(
+    'SELECT 1 AS um FROM moeda_operacoes WHERE usuario_id = :u AND conta_id = ? AND excluida_em IS NULL',
+    [id],
+  );
   if (usadaEmMoeda) {
     throw conflito('Esta conta tem compras ou vendas de moeda estrangeira. Arquive a conta em vez de excluir.');
   }
-  db.transaction(() => {
-    db.prepare('UPDATE contas SET excluida_em = ?, atualizada_em = ? WHERE id = ?').run(
+  await esc.transacao(async (tx) => {
+    await tx.rodar('UPDATE contas SET excluida_em = ?, atualizada_em = ? WHERE usuario_id = :u AND id = ?', [
       agora.toISOString(),
       agora.toISOString(),
       id,
-    );
-    auditar(db, { entidade: 'conta', id, acao: 'excluir', antes });
-  })();
+    ]);
+    await auditar(tx, { entidade: 'conta', id, acao: 'excluir', antes });
+  });
 }

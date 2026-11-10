@@ -9,12 +9,12 @@ import { resumoDeMoedas } from './moedas.js';
  * Junta o que cada módulo informa e calcula o patrimônio (RF-21). Contas arquivadas ficam de fora, como no saldo
  * total do início, para não existirem dois "saldos" diferentes. Módulo sem dados não entra (RF-10).
  */
-export function calcularPatrimonioAtual(db, hoje) {
-  const contas = listarContas(db, { incluirArquivadas: false });
-  const carteira = resumoDeInvestimentos(db);
-  const cartoes = resumoDosCartoes(db, hoje);
-  const dividas = resumoDeDividas(db, hoje);
-  const moedas = resumoDeMoedas(db, hoje);
+export async function calcularPatrimonioAtual(esc, hoje) {
+  const contas = await listarContas(esc, { incluirArquivadas: false });
+  const carteira = await resumoDeInvestimentos(esc);
+  const cartoes = await resumoDosCartoes(esc, hoje);
+  const dividas = await resumoDeDividas(esc, hoje);
+  const moedas = await resumoDeMoedas(esc, hoje);
   return {
     carteira,
     moedas,

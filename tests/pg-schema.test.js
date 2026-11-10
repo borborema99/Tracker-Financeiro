@@ -64,9 +64,9 @@ test('RLS ligado em todas as tabelas e nenhuma policy criada (nega tudo a anon e
 
 test('o nome de usuário é único sem diferenciar maiúsculas', async () => {
   await novoUsuario(banco, 'Felipe.Teste');
-  await assert.rejects(() => novoUsuario(banco, 'felipe.teste'), /idx_usuarios_nome|duplicate|unique/i);
-  await assert.rejects(() => novoUsuario(banco, 'ab'), /check/i);
-  await assert.rejects(() => novoUsuario(banco, 'com espaço'), /check/i);
+  await assert.rejects(async () => novoUsuario(banco, 'felipe.teste'), /idx_usuarios_nome|duplicate|unique/i);
+  await assert.rejects(async () => novoUsuario(banco, 'ab'), /check/i);
+  await assert.rejects(async () => novoUsuario(banco, 'com espaço'), /check/i);
 });
 
 test('referenciar dado de outro usuário é impossível no banco', async () => {
@@ -83,7 +83,7 @@ test('referenciar dado de outro usuário é impossível no banco', async () => {
     );
 
   // B apontando para a conta de A: violação de chave estrangeira composta.
-  await assert.rejects(() => inserir(b, contaA), (e) => e.code === '23503');
+  await assert.rejects(async () => inserir(b, contaA), (e) => e.code === '23503');
   // Cada um na sua conta funciona.
   const [movA] = await inserir(a, contaA);
   await inserir(b, contaB);
@@ -98,7 +98,7 @@ test('referenciar dado de outro usuário é impossível no banco', async () => {
     (e) => e.code === '23503',
   );
   // Reembolso de B ligado à movimentação de A.
-  await assert.rejects(() => inserir(b, contaB, `reembolso_de_id=${movA.id}`), (e) => e.code === '23503');
+  await assert.rejects(async () => inserir(b, contaB, `reembolso_de_id=${movA.id}`), (e) => e.code === '23503');
 });
 
 test('excluir o usuário apaga todos os dados dele e nada do outro', async () => {
@@ -187,7 +187,7 @@ test('anexo removido não tem objeto e anexo ativo sempre tem (CHECK)', async ()
     [u, conta, AGORA],
   );
   const base = `INSERT INTO anexos (usuario_id, movimentacao_id, nome, tipo_mime, tamanho_bytes, sha256, caminho_storage, criado_em, excluido_em)`;
-  await assert.rejects(() => banco.consultar(`${base} VALUES ($1, $2, 'a.pdf', 'application/pdf', 1, 'x', NULL, $3, NULL)`, [u, mov.id, AGORA]));
-  await assert.rejects(() => banco.consultar(`${base} VALUES ($1, $2, 'a.pdf', 'application/pdf', 1, 'x', 'p', $3, $3)`, [u, mov.id, AGORA]));
+  await assert.rejects(async () => banco.consultar(`${base} VALUES ($1, $2, 'a.pdf', 'application/pdf', 1, 'x', NULL, $3, NULL)`, [u, mov.id, AGORA]));
+  await assert.rejects(async () => banco.consultar(`${base} VALUES ($1, $2, 'a.pdf', 'application/pdf', 1, 'x', 'p', $3, $3)`, [u, mov.id, AGORA]));
   await banco.consultar(`${base} VALUES ($1, $2, 'a.pdf', 'application/pdf', 1, 'x', NULL, $3, $3)`, [u, mov.id, AGORA]);
 });

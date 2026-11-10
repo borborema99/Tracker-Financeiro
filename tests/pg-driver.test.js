@@ -63,7 +63,7 @@ test('jsonb com $n::text::jsonb funciona e a leitura volta como objeto', async (
 
 test('transacao desfaz tudo em caso de erro, pelo driver de produção', async () => {
   const [u] = await banco.consultar(`SELECT id FROM usuarios WHERE nome_usuario = 'driver_a'`);
-  await assert.rejects(() =>
+  await assert.rejects(async () =>
     banco.transacao(async (tx) => {
       await tx.consultar(`INSERT INTO config (usuario_id, chave, valor) VALUES ($1, 'fuso', 'x')`, [u.id]);
       throw new Error('falhou');

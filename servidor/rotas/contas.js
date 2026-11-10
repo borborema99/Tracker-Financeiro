@@ -3,21 +3,19 @@ import { atualizarConta, criarConta, excluirConta, listarContas } from '../banco
 import { idDe } from './util.js';
 
 export async function rotasContas(app) {
-  const { db } = app;
-
-  app.get('/api/contas', async () => ({ itens: listarContas(db) }));
+  app.get('/api/contas', async (request) => ({ itens: await listarContas(request.esc) }));
 
   app.post('/api/contas', async (request, reply) => {
-    const conta = criarConta(db, esquemaConta.parse(request.body));
+    const conta = await criarConta(request.esc, esquemaConta.parse(request.body));
     return reply.code(201).send(conta);
   });
 
   app.put('/api/contas/:id', async (request) =>
-    atualizarConta(db, idDe(request), esquemaConta.parse(request.body)),
+    atualizarConta(request.esc, idDe(request), esquemaConta.parse(request.body)),
   );
 
   app.delete('/api/contas/:id', async (request, reply) => {
-    excluirConta(db, idDe(request));
+    await excluirConta(request.esc, idDe(request));
     return reply.code(204).send();
   });
 }

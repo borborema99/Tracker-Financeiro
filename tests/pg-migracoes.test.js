@@ -34,7 +34,7 @@ test('migrar recusa migration alterada depois de aplicada', async () => {
   const banco = await abrirBancoLocal();
   await migrar(banco, dir);
   writeFileSync(join(dir, '001_a.sql'), 'CREATE TABLE a (id integer, x text);');
-  await assert.rejects(() => migrar(banco, dir), /foi alterada/);
+  await assert.rejects(async () => migrar(banco, dir), /foi alterada/);
   await banco.fechar();
 });
 
@@ -50,7 +50,7 @@ test('o checksum ignora a diferença entre CRLF e LF', async () => {
 test('migrar desfaz a migration inteira se um comando falhar', async () => {
   const dir = pastaCom({ '001_ruim.sql': 'CREATE TABLE b (id integer); CREATE TABLE b (id integer);' });
   const banco = await abrirBancoLocal();
-  await assert.rejects(() => migrar(banco, dir));
+  await assert.rejects(async () => migrar(banco, dir));
   const [{ existe }] = await banco.consultar("SELECT to_regclass('public.b') IS NOT NULL AS existe");
   assert.equal(existe, false);
   const [{ n }] = await banco.consultar('SELECT count(*)::int AS n FROM schema_migrations');
@@ -70,7 +70,7 @@ test('uma migration nova é aplicada sem refazer as antigas', async () => {
 test('transacao desfaz tudo quando a função lança erro', async () => {
   const banco = await abrirBancoLocal();
   await banco.executar('CREATE TABLE t (n integer)');
-  await assert.rejects(() =>
+  await assert.rejects(async () =>
     banco.transacao(async (tx) => {
       await tx.consultar('INSERT INTO t VALUES (1)');
       throw new Error('falhou');

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -17,21 +17,35 @@ function lista(valor) {
     .filter(Boolean);
 }
 
-function caminho(valor, padrao) {
-  const c = valor || padrao;
-  return isAbsolute(c) ? c : join(RAIZ, c);
-}
-
+/**
+ * Tudo vem de variável de ambiente do servidor (ADR 013). Nenhuma delas vai para o navegador nem para variável
+ * `VITE_`. `bancoUrl` vazio significa desenvolvimento local, com PGlite em `data/pglite`.
+ */
 export function lerAmbiente(env = process.env) {
+  const siteUrl = (env.SITE_URL ?? '').replace(/\/+$/, '');
   return {
     porta: Number(env.PORT) || 3000,
-    exporNaRede: env.EXPOR_NA_REDE === '1',
-    httpsCert: env.HTTPS_CERT ? caminho(env.HTTPS_CERT) : null,
-    httpsKey: env.HTTPS_KEY ? caminho(env.HTTPS_KEY) : null,
-    origensPermitidas: lista(env.ORIGENS_PERMITIDAS),
+    bancoUrl: env.DATABASE_URL ?? '',
+    supabaseUrl: env.SUPABASE_URL ?? '',
+    supabaseChave: env.SUPABASE_SERVICE_KEY ?? '',
     segredo: env.SEGREDO_SESSAO ?? '',
-    caminhoBanco: caminho(env.DB_PATH, 'data/tracker.db'),
-    demo: env.DEMO === '1',
-    pastaWeb: join(RAIZ, 'web', 'dist'),
+    pepper: env.SENHA_PEPPER ?? '',
+    chaveIp: env.HMAC_CHAVE_IP ?? '',
+    cadastroAberto: env.CADASTRO_ABERTO === '1',
+    siteUrl,
+    // O host do site entra sozinho; ORIGENS_PERMITIDAS serve a domínios extras (domínio próprio, previews).
+    origensPermitidas: [...(siteUrl ? [siteUrl] : []), ...lista(env.ORIGENS_PERMITIDAS)],
+    pastaLocal: join(RAIZ, 'data', 'pglite'),
+    pastaWeb: join(RAIZ, 'frontend', 'dist'),
   };
+}
+
+/** Segredos que o servidor não funciona sem. Devolve os nomes das variáveis que faltam. */
+export function variaveisFaltando(config) {
+  const exigidas = [
+    ['SEGREDO_SESSAO', config.segredo],
+    ['SENHA_PEPPER', config.pepper],
+    ['HMAC_CHAVE_IP', config.chaveIp],
+  ];
+  return exigidas.filter(([, valor]) => !valor).map(([nome]) => nome);
 }

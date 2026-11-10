@@ -9,41 +9,41 @@ import { calcularSaldos, efeitoNaConta } from '../servidor/dominio/saldo.js';
 import { resumoRealizado } from '../servidor/dominio/resumo.js';
 import { CTX, bancoComPadroes, novaConta, novaMov, saldoDe } from './ajuda.js';
 
-test('RF-01: saldo da conta = saldo inicial + movimentações liquidadas', () => {
-  const db = bancoComPadroes();
-  const c = novaConta(db, 'Corrente', 100000);
-  novaMov(db, { tipo: 'receita', valor_centavos: 50000, conta_id: c.id });
-  novaMov(db, { tipo: 'despesa', valor_centavos: 12345, conta_id: c.id });
-  assert.equal(saldoDe(db, c.id), 100000 + 50000 - 12345);
+test('RF-01: saldo da conta = saldo inicial + movimentações liquidadas', async () => {
+  const db = await bancoComPadroes();
+  const c = await novaConta(db, 'Corrente', 100000);
+  await novaMov(db, { tipo: 'receita', valor_centavos: 50000, conta_id: c.id });
+  await novaMov(db, { tipo: 'despesa', valor_centavos: 12345, conta_id: c.id });
+  assert.equal(await saldoDe(db, c.id), 100000 + 50000 - 12345);
 });
 
-test('RF-01: movimentação prevista (pendente) não altera o saldo', () => {
-  const db = bancoComPadroes();
-  const c = novaConta(db, 'Corrente', 100000);
-  novaMov(db, { tipo: 'despesa', valor_centavos: 30000, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-30' });
-  novaMov(db, { tipo: 'receita', valor_centavos: 70000, conta_id: c.id, status: 'pendente' });
-  assert.equal(saldoDe(db, c.id), 100000);
+test('RF-01: movimentação prevista (pendente) não altera o saldo', async () => {
+  const db = await bancoComPadroes();
+  const c = await novaConta(db, 'Corrente', 100000);
+  await novaMov(db, { tipo: 'despesa', valor_centavos: 30000, conta_id: c.id, status: 'pendente', data_vencimento: '2026-06-30' });
+  await novaMov(db, { tipo: 'receita', valor_centavos: 70000, conta_id: c.id, status: 'pendente' });
+  assert.equal(await saldoDe(db, c.id), 100000);
 });
 
-test('RF-01: liquidar altera o saldo e reabrir desfaz', () => {
-  const db = bancoComPadroes();
-  const c = novaConta(db, 'Corrente', 0);
-  const m = novaMov(db, { tipo: 'receita', valor_centavos: 20000, conta_id: c.id, status: 'pendente' });
-  assert.equal(saldoDe(db, c.id), 0);
-  const liquidada = liquidarMovimentacao(db, m.id, '2026-06-12', CTX);
+test('RF-01: liquidar altera o saldo e reabrir desfaz', async () => {
+  const db = await bancoComPadroes();
+  const c = await novaConta(db, 'Corrente', 0);
+  const m = await novaMov(db, { tipo: 'receita', valor_centavos: 20000, conta_id: c.id, status: 'pendente' });
+  assert.equal(await saldoDe(db, c.id), 0);
+  const liquidada = await liquidarMovimentacao(db, m.id, '2026-06-12', CTX);
   assert.equal(liquidada.status, 'liquidada');
   assert.equal(liquidada.data_liquidacao, '2026-06-12');
-  assert.equal(saldoDe(db, c.id), 20000);
-  const reaberta = reabrirMovimentacao(db, m.id, CTX);
+  assert.equal(await saldoDe(db, c.id), 20000);
+  const reaberta = await reabrirMovimentacao(db, m.id, CTX);
   assert.equal(reaberta.data_liquidacao, null);
-  assert.equal(saldoDe(db, c.id), 0);
+  assert.equal(await saldoDe(db, c.id), 0);
 });
 
-test('RF-01: liquidar sem data usa "hoje" do fuso configurado', () => {
-  const db = bancoComPadroes();
-  const c = novaConta(db);
-  const m = novaMov(db, { conta_id: c.id, status: 'pendente' });
-  assert.equal(liquidarMovimentacao(db, m.id, undefined, CTX).data_liquidacao, CTX.hoje);
+test('RF-01: liquidar sem data usa "hoje" do fuso configurado', async () => {
+  const db = await bancoComPadroes();
+  const c = await novaConta(db);
+  const m = await novaMov(db, { conta_id: c.id, status: 'pendente' });
+  assert.equal((await liquidarMovimentacao(db, m.id, undefined, CTX)).data_liquidacao, CTX.hoje);
 });
 
 test('RF-01: só liquidada conta como receita ou despesa realizada', () => {
@@ -83,10 +83,10 @@ test('RF-01: saldo inicial negativo e saldos por conta independentes', () => {
   assert.deepEqual(saldos, { 1: -2000, 2: -100 });
 });
 
-test('RF-01: editar uma pendente para liquidada passa a contar no saldo', () => {
-  const db = bancoComPadroes();
-  const c = novaConta(db);
-  const m = novaMov(db, { tipo: 'receita', valor_centavos: 5000, conta_id: c.id, status: 'pendente' });
-  atualizarMovimentacao(db, m.id, { ...m, status: 'liquidada', data_liquidacao: '2026-06-14', divisoes: [] }, CTX);
-  assert.equal(saldoDe(db, c.id), 5000);
+test('RF-01: editar uma pendente para liquidada passa a contar no saldo', async () => {
+  const db = await bancoComPadroes();
+  const c = await novaConta(db);
+  const m = await novaMov(db, { tipo: 'receita', valor_centavos: 5000, conta_id: c.id, status: 'pendente' });
+  await atualizarMovimentacao(db, m.id, { ...m, status: 'liquidada', data_liquidacao: '2026-06-14', divisoes: [] }, CTX);
+  assert.equal(await saldoDe(db, c.id), 5000);
 });
