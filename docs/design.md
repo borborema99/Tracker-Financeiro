@@ -42,7 +42,11 @@ Raio de borda 6 px: placa, não bolha. Sombra só nas etiquetas, com deslocament
 - Mobile-first. Abaixo de 900 px: barra de abas inferior (com respiro da área segura). A partir de 900 px: menu lateral recolhível, preferência em `localStorage` (`tracker.menuRecolhido`).
 - Alvos de toque de pelo menos 44 px (botões `h-11`, itens de menu `min-h-11`, barra inferior `min-h-14`).
 - Valores monetários com `inputmode="decimal"`. Tabelas viram cartões em telas estreitas. (Telas de dados: Ondas 3 e 4.)
-- Botão de ocultar valores no topo, preferência no navegador, vale para todo valor. Entra junto com a primeira tela com valores (Onda 3); antes disso não há o que ocultar e o botão não existe.
+- Botão de ocultar valores no topo (olho), preferência no navegador (`tracker.ocultarValores`), vale para todo `Valor` e para os gráficos ("Valores ocultos"). Valor oculto aparece como "R$ ••••".
+- Sino de alertas no topo, com selo da quantidade (`9+`); some o selo quando não há alerta. "Novo lançamento" sempre à mão: botão redondo "+" no celular (não cobre os valores das listas) e botão com texto a partir de 900 px; some em `/app/lancamentos/novo` e `/app/cartoes/compras*`.
+- Barra inferior: Início, Lançamentos, Compromissos, Fluxo de caixa e Mais. "Mais" (`/app/mais`) lista todos os módulos.
+- Listas de dados (lançamentos) viram cartões no celular: cada célula traz o próprio rótulo (`data-label`). Formulários: validação do contrato compartilhado antes de enviar (mesmas mensagens do servidor) e `ErroApi.campos` mostrado sob cada campo. Gráficos (Recharts) em chunk próprio, com as mesmas cores dos tokens `--entrada` e `--saida`.
+- Link só aparece se a tela existe: `destinoExiste` (em `app/modulos.ts`) filtra os links dos alertas, e os blocos do Início aparecem quando há dado **e** o módulo está no menu.
 - Menu só mostra módulo que funciona: `app/modulos.ts` é a lista única de menu, barra inferior e rotas.
 - Páginas de acesso: faixa amarela com o título e o formulário ao lado (embaixo no celular). Erro de servidor vai num `role="alert"` acima do campo; erro de campo, abaixo dele.
 - Movimento: um só momento, as etiquetas da landing "penduradas" entrando em sequência (`tw-animate-css`), só com `motion-safe`.

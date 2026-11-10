@@ -86,3 +86,13 @@ Removidas na Onda 1: `better-sqlite3` (o banco agora é Postgres) e `qrcode-term
 - **Menu:** `app/modulos.ts` é a lista única de menu, barra inferior e rotas; módulo só entra quando a tela funciona. Na Onda 2 só existe "Início" (tela provisória). O botão "Novo lançamento", o ocultar valores e o item "Mais" da barra inferior entram com as telas da Onda 3, porque hoje não teriam efeito.
 - **Orçamento de JS:** landing inicial 108 kB de 120; app inicial 108 kB de 180.
 - **Pendência de ambiente (da Onda 0, ainda aberta):** o ESLint não lê `.ts`/`.tsx` por causa do hook que protege `eslint.config.js`; o `tsc` estrito cobre os tipos.
+
+## Onda 3: telas de uso diário
+
+- **Telas:** Início, Lançamentos (lista com filtros na URL, formulário, histórico), Compromissos, Recorrências, Fluxo de caixa (realizado, projeção, calendário), Contas, Categorias, Cartões (lista, detalhe, compra, fatura) e Alertas. Cada uma é um chunk lazy registrado em `app/modulos.ts`; `subrotas` guarda formulários e detalhes, que não aparecem no menu.
+- **Sem regra no front:** a API devolve totais, saldos, limites, séries e situações prontos; as telas só formatam. O formulário de lançamento valida com `esquemaMovimentacao` (contrato compartilhado, mesmas mensagens) e o servidor continua sendo a autoridade.
+- **Casca:** ocultar valores (`ProvedorOcultarValores`), sino de alertas com selo, atalho "Novo lançamento" e página "Mais".
+- **Links honestos:** o Início só mostra um bloco quando há dado e o módulo existe; `destinoExiste` tira o "Ver" de alertas que apontam para telas da Onda 4. Quando o módulo entrar em `MODULOS`, o bloco e o link aparecem sozinhos.
+- **Fica para a Onda 4:** Comprovantes (ação por lançamento), marca de assinatura no formulário de recorrência (hoje só se preserva o valor gravado) e os módulos de planejamento e patrimônio.
+- **Orçamento de JS:** landing 109,5 kB de 120; app inicial 112,6 kB de 180. Recharts fica fora do pacote inicial.
+- **Testes de front novos (13 + 4 + 3):** máscara de dinheiro (`CampoValor`), formulário de lançamento, casca (atalho, sino, ocultar valores, barra) e registro de módulos.
