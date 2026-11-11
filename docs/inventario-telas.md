@@ -1,6 +1,6 @@
 # Inventário de telas
 
-Fotografia do front atual (`web/src`), tirada na Onda 0 da migração para o Netlify (ADR 013). É a lista de conferência da Onda 4: no fim, cada item abaixo precisa existir no front novo, com a mesma função. Nada pode sumir. Rotas aqui são as do app antigo (sem prefixo); no front novo todas ficam sob `/app`.
+Fotografia do front anterior (`web/src`, removido na Onda 5; continua no histórico do git), tirada na Onda 0 da migração para o Netlify (ADR 013). É a lista de conferência da Onda 4: no fim, cada item abaixo precisa existir no front novo, com a mesma função. Nada pode sumir. Rotas aqui são as do app antigo (sem prefixo); no front novo todas ficam sob `/app`.
 
 Todas as telas de dados têm hoje estados de carregando, vazio e erro; o front novo mantém os três.
 

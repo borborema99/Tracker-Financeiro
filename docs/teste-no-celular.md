@@ -2,32 +2,24 @@
 
 Roteiro para validar no aparelho o que os testes automáticos não alcançam (toque, teclado, tela pequena, CSP, instalação). Marque cada item; se algum falhar, anote o aparelho, o navegador e o que apareceu.
 
-## Preparar sem tocar nos seus dados
+## Preparar
 
-Use um banco descartável. No PowerShell, na pasta do projeto:
+Duas formas, as duas sem tocar em dado real:
 
-```powershell
-$env:DB_PATH = 'data/teste-celular.db'
-npm run setup          # define uma senha só para o teste
-npm run build
-npm run iniciar:rede   # mostra o endereço e o QR code
-```
-
-No celular (mesmo Wi-Fi), leia o QR code ou digite o endereço. Para voltar ao banco de verdade, feche o terminal (a variável some) e apague `data/teste-celular.db` quando quiser.
-
-`npm run demo` traz dados de exemplo prontos, mas só escuta em `localhost` de propósito; use-o no computador, não no celular.
+- **Site publicado** (o que vale para o dia a dia): abra o endereço do Netlify no celular e entre com uma conta de teste criada com `npm run criar-usuario -- teste-celular`. Apague a conta depois, em Conta → Excluir conta.
+- **Computador e celular na mesma rede** (só para desenvolver): `npm run demo` sobe a demonstração na porta 3100 com o usuário `demo` e a senha `demonstracao`, num banco local descartável (`data/pglite-demo`). Ele escuta só em `localhost`; para ver no celular, publique uma conta de teste como acima.
 
 ## 1. Entrada e sessão
 
-- [ ] A tela de login abre e o teclado do celular aparece no campo de senha (sem mostrar o que digita).
-- [ ] Senha errada mostra mensagem clara; após 5 erros aparece o bloqueio de 15 minutos.
+- [ ] A tela `/entrar` abre e o teclado do celular aparece nos campos de usuário e de senha (a senha não aparece).
+- [ ] Senha errada e usuário inexistente mostram a mesma mensagem; após 5 erros aparece o bloqueio de 15 minutos.
 - [ ] Com a senha certa entra; fechar e reabrir o navegador mantém a sessão.
-- [ ] Config → Sair volta ao login.
+- [ ] Conta → Sair volta ao login. Abrir `/app/lancamentos` sem sessão leva ao login e, depois de entrar, de volta a Lançamentos.
 
 ## 2. Navegação e tela pequena
 
 - [ ] Barra de baixo com Início, Lançamentos, Compromissos, Fluxo e Mais; todos os toques acertam de primeira (alvos de 44 px).
-- [ ] "Mais" leva a Contas, Cartões, Recorrências, Categorias, Alertas e Config.
+- [ ] "Mais" leva a Contas, Cartões, Recorrências, Categorias, Alertas, Conta e Configurações.
 - [ ] O botão "Novo lançamento" fica sempre à mão e não cobre o último item de uma lista (role até o fim).
 - [ ] Nenhuma tela rola para os lados (teste também com o celular deitado).
 - [ ] As listas de lançamentos viram cartões, sem tabela apertada.
@@ -75,23 +67,23 @@ Este é o item que ainda não foi conferido num navegador (ADR 005): os gráfico
 
 ## 8. Exportar
 
-- [ ] Config → "Lançamentos (CSV)" baixa o arquivo; abra numa planilha: acentos corretos, valores como número (`1234,56`), colunas separadas.
+- [ ] Conta → "Lançamentos (CSV)" baixa o arquivo; abra numa planilha: acentos corretos, valores como número (`1234,56`), colunas separadas.
 - [ ] Em Lançamentos, filtre por tipo e use "Exportar estes lançamentos": o CSV traz só o filtrado.
 - [ ] "Cópia completa (JSON)" baixa e abre como texto; confira que não há senha nem sessão nele.
 
 ## 9. Instalação e offline (só com HTTPS)
 
-Em HTTP por IP o navegador não instala o app; isso é esperado. Para testar, siga `docs/acesso-celular.md` (Tailscale ou mkcert).
+O site publicado no Netlify já é HTTPS, então a instalação funciona. Em `localhost` (demonstração) também; por IP da rede em HTTP não, e isso é esperado.
 
 - [ ] O navegador oferece "Instalar app" / "Adicionar à tela inicial" e o ícone aparece.
 - [ ] Aberto pelo ícone, o app usa a tela inteira e mantém a sessão.
-- [ ] Com o servidor desligado, a casca do app abre, mas os dados dão a mensagem "Sem conexão com o servidor" (não há dado velho fingindo ser atual).
+- [ ] Sem internet (modo avião), a casca do app abre, mas os dados dão a mensagem de falta de conexão (não há dado velho fingindo ser atual: o service worker nunca guarda respostas da API).
 
-## 10. Backup (no computador)
+## 10. Backup de uma conta (no computador, com o `.env` do banco)
 
-- [ ] `npm run backup` cria um arquivo em `backups/`.
-- [ ] Pare o servidor, rode `npm run restaurar`, escolha o arquivo e confirme: o banco volta ao estado do backup e o anterior fica guardado como `antes-de-restaurar-...`.
-- [ ] Suba de novo (`npm start`): os dados estão lá e a senha continua a mesma.
+- [ ] `npm run backup -- seu-usuario` cria um arquivo JSON em `backups/` (guarde fora do computador; ele leva os comprovantes).
+- [ ] `npm run restaurar -- seu-usuario backups/<arquivo>.json --sim` substitui os dados da conta pelo backup e guarda antes um backup do estado atual.
+- [ ] Entre de novo: os dados estão lá e a senha continua a mesma.
 
 ## 11. Peso
 

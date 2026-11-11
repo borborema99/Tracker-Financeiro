@@ -3,16 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Controle financeiro pessoal que roda na sua máquina",
+  "description": "Controle financeiro pessoal, multiusuário, para publicar no Netlify com Supabase",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "setup": "node scripts/setup.js",
     "dev": "node scripts/dev.js",
-    "build": "npm run build:legado && npm run build:frontend",
-    "build:legado": "vite build --config web/vite.config.js",
-    "build:frontend": "vite build --config frontend/vite.config.ts",
+    "build": "vite build --config frontend/vite.config.ts",
     "start": "node servidor/index.js",
     "criar-usuario": "node scripts/criar-usuario.js",
     "demo": "node scripts/demo.js",
@@ -25,7 +23,8 @@
     "test:servidor": "node --test --test-reporter=./tests/reporter-falhas.js \"tests/**/*.test.js\"",
     "test:frontend": "vitest run --config frontend/vite.config.ts --reporter=dot",
     "orcamento": "node scripts/orcamento-js.js",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run orcamento"
+    "verificar-dist": "node scripts/verificar-dist.js",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run orcamento && npm run verificar-dist"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",

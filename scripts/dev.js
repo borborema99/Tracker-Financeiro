@@ -12,7 +12,7 @@ if (faltando.length > 0) {
 const vite = join(RAIZ, 'node_modules', 'vite', 'bin', 'vite.js');
 const filhos = [
   spawn(process.execPath, ['--watch', join(RAIZ, 'servidor', 'index.js')], { stdio: 'inherit', cwd: RAIZ }),
-  spawn(process.execPath, [vite, '--config', join(RAIZ, 'web', 'vite.config.js')], { stdio: 'inherit', cwd: RAIZ }),
+  spawn(process.execPath, [vite, '--config', join(RAIZ, 'frontend', 'vite.config.ts')], { stdio: 'inherit', cwd: RAIZ }),
 ];
 
 const parar = () => {

@@ -1,39 +1,50 @@
 # Arquitetura
 
-Um processo Node serve a API em `/api` e o build do front (`web/dist`). SQLite local em `data/`.
+Site estático (build do Vite) e uma API Fastify, publicados no Netlify; dados num Postgres do Supabase e comprovantes num bucket privado do Supabase Storage. Várias contas, cada uma isolada das outras (ADR 013). Em desenvolvimento, o mesmo app roda num processo só (`npm run dev` ou `npm start`), com PGlite no lugar do Supabase.
 
 ```
 servidor/
-  index.js        sobe o servidor (lê .env, migra, escuta, imprime endereço e QR)
-  app.js          monta o Fastify: hooks de Host, Origin, sessão e CSRF; rotas; estáticos
-  config.js       variáveis de ambiente
-  rotas/          saude, sessao (login/logout), config
-  dominio/        cálculos financeiros, funções puras (vazio na Onda 0)
-  banco/          conexao, migrar (runner), auditoria, config-db, migrations/*.sql
-  seguranca/      senha (scrypt), sessao, tentativas, origem, cabecalhos
-  demo/           dados do modo demonstração
-web/src/          app React por feature: app, auth, config, dashboard, compartilhado
+  index.js        servidor local (lê .env, migra, escuta só em localhost)
+  app.js          monta o Fastify: hooks de Host, Origin, sessão e CSRF; rotas; estáticos (só no servidor local)
+  netlify.js      ponte da Function v2 (Request/Response) para app.inject
+  config.js       variáveis de ambiente do servidor
+  rotas/          uma por módulo, mais saude, sessao (login, cadastro, conta) e config
+  dominio/        cálculos financeiros, funções puras
+  banco/          abrir (escolhe Postgres ou PGlite), auditoria, config-db, padroes, repositorios/
+    pg/           conexao (driver postgres), pglite, escopo, migrar (runner com checksum), tipos, migrations/*.sql
+  armazenamento/  Supabase Storage (produção), pasta local e memória (testes)
+  seguranca/      senha (scrypt + pepper), sessao, tentativas, origem, cabecalhos
+  demo/           dados do usuário "demo"
+netlify/functions/  api.mjs (/api/*) e manutencao.mjs (agendada, @daily)
+netlify.toml      build, redirecionamentos da SPA, cabeçalhos e CSP dos arquivos estáticos
+frontend/         site e app: React, TypeScript estrito, Tailwind, shadcn/ui
+  src/landing, publico   páginas públicas (landing, entrar, criar conta, privacidade, termos)
+  src/app                casca do tracker, guarda de rota, módulos.ts e telas/
+  src/lib, components    sessão, API, tema, PWA, componentes de interface
 contratos/        Zod e dinheiro, usados pelo front e pelo servidor
-scripts/          setup, dev, demo, backup, restaurar, redefinir-senha, iniciar-rede
+scripts/          setup, dev, demo, criar-usuario, redefinir-senha, backup, restaurar, orçamento de JS, verificar-dist
 ```
 
 ## Requisição
 
-1. Hook `onRequest`: Host precisa ser localhost, IP literal ou estar em `ORIGENS_PERMITIDAS` (421 senão; evita DNS rebinding).
+1. Hook `onRequest`: o Host precisa ser o de `SITE_URL` ou estar em `ORIGENS_PERMITIDAS` (421 senão; evita DNS rebinding). Em desenvolvimento local, localhost.
 2. Em `/api`, métodos de escrita exigem `Origin` igual ao Host e permitida (403 senão), inclusive o login.
-3. Rotas não marcadas `config: { publica: true }` exigem cookie de sessão (401).
-4. Escrita autenticada exige `X-CSRF-Token`, derivado por HMAC da sessão com `SEGREDO_SESSAO`.
-5. `onSend`: cabeçalhos de segurança; `/api` com `Cache-Control: no-store`.
+3. Rotas não marcadas `config: { publica: true }` exigem cookie de sessão (401). As únicas públicas são `GET /api/saude`, `GET /api/sessao`, `POST /api/login` e `POST /api/cadastro` (404 com o cadastro fechado); `tests/seguranca-rotas.test.js` confere a lista.
+4. Depois da sessão, `request.esc` é o escopo do usuário: o único caminho das rotas até os dados.
+5. Escrita autenticada exige `X-CSRF-Token`, derivado por HMAC da sessão com `SEGREDO_SESSAO`.
+6. `onSend`: cabeçalhos de segurança; `/api` com `Cache-Control: no-store`. Os arquivos estáticos recebem os mesmos cabeçalhos do `netlify.toml`.
 
-Sem sessão, rota inexistente também devolve 401 (não revela o que existe).
+Sem sessão, rota inexistente também devolve 401 (não revela o que existe). Recurso de outra conta responde 404, igual a um que não existe (`tests/isolamento.test.js`).
+
+Na Function, `netlify.js` descarta o `x-forwarded-for` recebido e entrega o IP de `context.ip` como `remoteAddress`: é ele que alimenta o bloqueio de login por IP.
 
 ## Sessão e senha
 
-Senha com scrypt (N=16384) na tabela `config`. Sessão: token aleatório no cookie, só o SHA-256 fica no banco, validade de 14 dias. Login limitado por IP: 5 erros bloqueiam por 15 min (`tentativas_login`). `trustProxy` só para 127.0.0.1/::1, para o `X-Forwarded-Proto` do `tailscale serve`.
+Senha com scrypt sobre `HMAC-SHA256(SENHA_PEPPER, senha)`, na tabela `usuarios` (nome de usuário único sem diferenciar maiúsculas). Sessão: token aleatório no cookie (`__Host-sessao` em HTTPS), só o SHA-256 fica no banco, validade de 14 dias; trocar a senha encerra as outras sessões. Login: 5 erros em 15 minutos bloqueiam por 15 minutos, contados por usuário e por IP (guardado como HMAC com `HMAC_CHAVE_IP`) na tabela `tentativas_login`, porque as funções não compartilham memória. A mensagem é a mesma para usuário inexistente e senha errada.
 
 ## Banco
 
-Migrations numeradas rodam em transação; `schema_migrations` guarda versão e checksum (migration alterada depois de aplicada é recusada). `audit_log` recebe antes/depois de toda escrita, na mesma transação (`banco/auditoria.js`).
+Postgres do Supabase pelo pooler em modo transação, sem prepared statements; PGlite nos testes e no desenvolvimento. Migrations numeradas rodam em transação; `schema_migrations` guarda versão e checksum (migration alterada depois de aplicada é recusada). A Function não roda migrations: quem migra é `npm run setup`. Toda tabela de dados tem `usuario_id NOT NULL`, as chaves estrangeiras entre dados são compostas com ele, e o RLS está ligado sem policies. `bigint` volta como Number e `date` como texto `AAAA-MM-DD` (`banco/pg/tipos.js`). `audit_log` recebe antes/depois de toda escrita, na mesma transação (`banco/auditoria.js`). Excluir a conta apaga tudo por `ON DELETE CASCADE` e depois os comprovantes do Storage.
 
 ## Domínio e repositórios
 
@@ -71,8 +82,8 @@ O BRL segue sendo a base: `movimentacoes`, resumo, orçamento, fluxo e relatóri
 
 ## Front
 
-Funciona sem service worker. `app/pwa.js` só adiciona o manifest e registra o SW (em produção) quando `window.isSecureContext`. O SW faz cache do shell e dos assets e ignora `/api`. CSP sem `unsafe-inline`: estilos só em arquivos CSS e nenhum atributo `style`. Celular: barra de baixo com Início, Lançamentos, Compromissos, Fluxo e Mais (a página `/mais` leva ao resto); desktop: menu lateral com tudo. Recharts só é baixado nas telas com gráfico (rota de fluxo lazy e gráficos lazy também no Início); cada gráfico tem tabela ou resumo equivalente e some com "Valores ocultos" quando o botão de ocultar está ligado.
+Funciona sem service worker. `lib/pwa.ts` só adiciona o manifest e registra o SW (em produção) quando `window.isSecureContext`. O SW (`frontend/public/sw.js`) faz cache do shell e dos assets com hash e ignora `/api`. CSP sem `unsafe-inline`: estilos só pelo Tailwind e por JavaScript, nenhum atributo `style` nem `<style>` no HTML. Rotas: `/` landing, `/entrar`, `/criar-conta` (só com cadastro aberto), `/privacidade`, `/termos` e `/app/*` atrás de `GuardaDeRota`, que manda quem não tem sessão ao login e traz de volta só a caminho interno começando com `/app`. Landing e tracker são chunks separados (orçamento: landing até 120 kB e app inicial até 180 kB, gzip; `scripts/orcamento-js.js`). Celular: barra de baixo e página "Mais"; desktop: menu lateral recolhível, tudo declarado em `app/modulos.ts`. Recharts só é baixado nas telas com gráfico; cada gráfico tem tabela ou resumo equivalente e some com "Valores ocultos" ligado.
 
 ## Testes
 
-`node:test` em `tests/`. Reporter `tests/reporter-falhas.js` imprime só falhas. Dado de teste é sempre fictício; o banco é `:memory:` ou pasta temporária.
+Servidor: `node:test` em `tests/` sobre PGlite, com um banco por arquivo e uma transação desfeita por teste (`tests/ajuda.js`); reporter `tests/reporter-falhas.js` imprime só falhas. Front: Vitest e Testing Library em `frontend/src/**/*.test.{ts,tsx}`. Dado de teste é sempre fictício. `tests/isolamento.test.js` (usuário B nunca vê nem altera o que é do A), `tests/vazamento-campos.test.js` (nenhum campo interno nas respostas) e `tests/publicacao.test.js` (netlify.toml, PWA e segredos no build) cobrem a parte de segurança da hospedagem.

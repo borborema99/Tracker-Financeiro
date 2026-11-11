@@ -144,7 +144,7 @@ function arquivos(pasta, extensoes) {
 }
 
 test('CSP: o código do front não usa style inline, innerHTML, eval nem script inline', () => {
-  const raiz = fileURLToPath(new URL('../web/', import.meta.url));
+  const raiz = fileURLToPath(new URL('../frontend/', import.meta.url));
   const proibidos = [
     [/\bstyle=\{/, 'atributo style (use classe no CSS)'],
     [/\bstyle="/, 'atributo style (use classe no CSS)'],
@@ -154,7 +154,7 @@ test('CSP: o código do front não usa style inline, innerHTML, eval nem script 
     [/new Function\(/, 'new Function'],
     [/createElement\(['"]style/, '<style> criado por script'],
   ];
-  for (const arquivo of arquivos(join(raiz, 'src'), ['.js', '.jsx'])) {
+  for (const arquivo of arquivos(join(raiz, 'src'), ['.ts', '.tsx']).filter((a) => !/\.test\.tsx?$/.test(a))) {
     const texto = readFileSync(arquivo, 'utf8');
     for (const [padrao, nome] of proibidos) {
       assert.doesNotMatch(texto, padrao, `${arquivo}: ${nome}`);

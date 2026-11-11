@@ -4,10 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './estilos/tailwind.css';
 import { ErroApi } from './lib/api';
+import { ativarPwa } from './lib/pwa';
 import { iniciarTema } from './lib/tema';
 import { Rotas } from './rotas';
 
 iniciarTema();
+ativarPwa();
 
 const cliente = new QueryClient({
   defaultOptions: {

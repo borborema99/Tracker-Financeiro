@@ -4,8 +4,9 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RAIZ } from '../servidor/config.js';
 
-const FUNDO = [0x2f, 0x4a, 0x73];
-const TRACO = [0xf3, 0xef, 0xe6];
+// Identidade "letreiro de feira" (docs/design.md): fundo amarelo-feira, "T" na cor da tinta.
+const FUNDO = [0xff, 0xd6, 0x0a];
+const TRACO = [0x17, 0x16, 0x0f];
 
 function chunk(tipo, dados) {
   const t = Buffer.from(tipo);
@@ -46,6 +47,6 @@ function png(n) {
 }
 
 for (const n of [180, 192, 512]) {
-  writeFileSync(join(RAIZ, 'web', 'public', `icone-${n}.png`), png(n));
+  writeFileSync(join(RAIZ, 'frontend', 'public', `icone-${n}.png`), png(n));
 }
-console.log('Ícones gerados em web/public/.');
+console.log('Ícones gerados em frontend/public/.');

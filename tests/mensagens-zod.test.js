@@ -72,15 +72,20 @@ test('mensagens do Zod: front e servidor usam a mesma fonte (todo contrato carre
   }
   assert.match(readFileSync(join(pasta, 'comum.js'), 'utf8'), /import '\.\/mensagens\.js'/);
 
-  // O front não define esquemas próprios: só usa os contratos, então não há segunda lista de mensagens.
+  // O front não define esquemas próprios: só usa os contratos, então não há segunda lista de mensagens. Só tipos
+  // (`import type`) vêm do zod; a exceção é o formulário de categorias, que monta o objeto reaproveitando o `.shape`
+  // do contrato (nome e tipo) e acrescenta campos de texto/booleano sem mensagem própria.
+  const COM_VALOR_DO_ZOD = new Set(['Categorias.tsx']);
   const varrer = (pasta2) => {
     for (const e of readdirSync(pasta2, { withFileTypes: true })) {
       const caminho = join(pasta2, e.name);
       if (e.isDirectory()) varrer(caminho);
-      else if (/\.jsx?$/.test(e.name)) assert.doesNotMatch(readFileSync(caminho, 'utf8'), /from 'zod'/, caminho);
+      else if (/\.tsx?$/.test(e.name) && !COM_VALOR_DO_ZOD.has(e.name)) {
+        assert.doesNotMatch(readFileSync(caminho, 'utf8'), /^import (?!type)[^;]*from 'zod'/m, caminho);
+      }
     }
   };
-  varrer(join(RAIZ, 'web', 'src'));
+  varrer(join(RAIZ, 'frontend', 'src'));
 });
 
 test('mensagens do Zod: a API devolve o mesmo texto em português que o contrato produz', async (t) => {

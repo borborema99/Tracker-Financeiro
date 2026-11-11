@@ -1,5 +1,7 @@
-// Cache só do shell do app. A API nunca passa por aqui: dados financeiros não ficam em cache.
-const CACHE = 'tracker-shell-v1';
+/* global self, caches */
+// Cache só do shell do app (HTML de entrada, manifest, ícones e arquivos com hash de /assets). A API nunca passa
+// por aqui: dados financeiros não ficam em cache. Sem este arquivo o app funciona igual, só não abre offline.
+const CACHE = 'tracker-shell-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icone-192.png', '/icone-512.png'];
 
 self.addEventListener('install', (evento) => {
@@ -30,8 +32,10 @@ self.addEventListener('fetch', (evento) => {
         (guardado) =>
           guardado ||
           fetch(request).then((resposta) => {
-            const copia = resposta.clone();
-            caches.open(CACHE).then((c) => c.put(request, copia));
+            if (resposta.ok) {
+              const copia = resposta.clone();
+              caches.open(CACHE).then((c) => c.put(request, copia));
+            }
             return resposta;
           }),
       ),
