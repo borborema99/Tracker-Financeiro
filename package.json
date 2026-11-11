@@ -49,6 +49,9 @@
     "tailwindcss": "^4.3.5",
     "zod": "^4.6.7"
   },
+  "overrides": {
+    "light-my-request": "6.6.0"
+  },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
     "@electric-sql/pglite-socket": "^0.2.19",

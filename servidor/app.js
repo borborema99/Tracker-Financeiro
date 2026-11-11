@@ -1,6 +1,5 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
-import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { ZodError } from 'zod';
 import { criarEscopo } from './banco/pg/escopo.js';
@@ -140,6 +139,9 @@ export async function criarApp({
 
   const temFront = servirFront && existsSync(config.pastaWeb);
   if (temFront) {
+    // Import dinâmico: a função do Netlify nunca serve o front e o runtime dela não aceita require() de pacote só
+    // ESM (o @fastify/static puxa o content-disposition). Só o servidor local carrega o pacote.
+    const { default: fastifyStatic } = await import('@fastify/static');
     await app.register(fastifyStatic, {
       root: config.pastaWeb,
       setHeaders(reply, caminho) {

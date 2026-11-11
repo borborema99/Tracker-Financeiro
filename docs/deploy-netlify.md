@@ -115,6 +115,7 @@ durante o período de convites: o cadastro não tem limite de taxa.
 | Login sempre recusado, em conta que existia | `SENHA_PEPPER` do Netlify diferente do usado em `criar-usuario` |
 | Login responde 429 | 5 erros em 15 minutos; espere ou rode `npm run redefinir-senha -- <usuario>` |
 | Erro de conexão com o banco | `DATABASE_URL` não é a do pooler (porta 6543) ou a senha tem caractere especial sem codificar |
+| API responde 502 "This function has crashed" | pacote que faz `require()` de módulo só ESM no runtime da função; `npm run verify` testa isso (`tests/funcao-runtime.test.js`). Veja o ADR 013 |
 | Comprovante não sobe | bucket com outro nome ou `SUPABASE_SERVICE_KEY` errada; limite de 5 MB por arquivo |
 
 ## Funções e limites
